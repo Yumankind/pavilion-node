@@ -16,5 +16,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
-        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+      # The gitleaks CLI (free); the gitleaks GitHub Action needs a paid licence for organisation repositories.
+      - run: docker run --rm -v "$PWD":/repo ghcr.io/gitleaks/gitleaks:v8.24.3 git /repo --no-banner --redact
