@@ -15,7 +15,7 @@ use anyhow::{anyhow, bail, Result};
 use serde_json::{json, Value};
 use zeroize::Zeroizing;
 
-pub const DEFAULT_GATE: &str = "https://pavilion-gate.powerhouse.workers.dev";
+pub const DEFAULT_GATE: &str = "https://cloudpavilion.net";
 /// What stands where the token was on screen: a slot's token never leaves this machine (21 Nov 2026: the slot's sign-in
 /// said "sent to the vault", which was not true; the vault path itself is retired since).
 pub(crate) const SLOT_PLACEHOLDER: &str = "[the token — kept on this machine only, not shown here]";
