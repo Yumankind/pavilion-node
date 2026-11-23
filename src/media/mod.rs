@@ -726,9 +726,10 @@ mod tests {
     fn a_process_groups_memory_is_measured() {
         use std::os::unix::process::CommandExt;
         // A child that holds 64 MiB in its own group.
-        let mut c = std::process::Command::new("/usr/bin/python3").args(["-c", "b = bytearray(64 << 20); import time; time.sleep(5)"]).process_group(0).spawn().unwrap();
-        std::thread::sleep(Duration::from_millis(1500));
-        let mib = group_footprint_mib(c.id() as i32);
+        let mut c = std::process::Command::new("/usr/bin/python3").args(["-c", "b = bytearray(64 << 20); import time; time.sleep(30)"]).process_group(0).spawn().unwrap();
+        // python3 can take seconds to start on a busy machine (a CI runner): look again until it holds the memory.
+        let mut mib = 0;
+        for _ in 0..40 { std::thread::sleep(Duration::from_millis(250)); mib = group_footprint_mib(c.id() as i32); if mib >= 60 { break; } }
         let _ = c.kill(); let _ = c.wait();
         assert!(mib >= 60, "{mib} MiB");
     }
