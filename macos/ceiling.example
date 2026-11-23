@@ -1,0 +1,30 @@
+# This Mac's local ceiling (docs/MACHINES.md §3, docs/DEVICES.md §3b). The cloud can never raise it.
+# Install it owned by root, so pavilion-node (running as you) can read it but not change it:
+#
+#   sudo mkdir -p "/Library/Application Support/pavilion-node"
+#   sudo install -o root -g wheel -m 644 node/macos/ceiling.example "/Library/Application Support/pavilion-node/ceiling"
+#   pavilion-node devices status
+#
+# No file, or `devices: none`, means no device actions at all. Each capability is off until it's listed.
+devices:
+  # camera, mic, speaker, screen, ble, lan, location; obd, home (Home Assistant, MQTT), cast, print, industrial (Modbus)
+  # for adopted devices that speak those standards. sensors, nfc, usb, midi, serial and health are phones or later.
+  capabilities: ble, lan
+  # Agents that may ask at all, by id (the console shows it). None listed: every agent is refused.
+  agents: []
+  # No requests during these hours (this Mac's local time). Remove the line for none.
+  quiet: 23:00-07:00
+  # Kinds this Mac may allow with nobody here: look (scans), read (adopted devices). Captures and acts always ask.
+  # unattended: look
+
+# Jobs from the pavilion (docs/MACHINES.md §3). No jobs: section means every kind of job, in any image with a sane
+# name. To set limits, remove the "#" at the start of each line below. A mistake in this section, or a file the node
+# can't trust, stops every job until it's fixed (pavilion-node status says why). `jobs: none` means no jobs at all.
+#jobs:
+#  # command, agent, cli, media. A kind not listed is refused.
+#  kinds: command, agent, media
+#  # The only images a sandbox may run, written exactly as the job names them (agent jobs: agent_image in config.json,
+#  # pavilion-dev:1 if unset; cli jobs: the images in cli_tools). Pin each one by digest, name@sha256:<64 hex>
+#  # (container image inspect shows it): a tag like :1 can later be pointed at a different image.
+#  images:
+#    - pavilion-dev:1

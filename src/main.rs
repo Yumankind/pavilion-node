@@ -1,17 +1,47 @@
-//! pavilion-node: your own machine in a Cloud Pavilion (docs/DESIGN.md). Phase 0.
+//! pavilion-node: your own machine in a Cloud Pavilion (docs/MACHINES.md). Phase 0.
 //!
-//!   pavilion-node join        paste the link from Machines › Add a machine; shows a 6-digit code to type in the console
-//!   pavilion-node run         stay connected; run jobs in fresh sandboxes; guard memory and disk
+//!   pavilion-node join [<CODE>|<link>]   the eight characters from Machines › Pair a machine (or its QR), or the link
+//!                             from Machines › Add a machine; with neither, paste one when asked (kept out of shell
+//!                             history). A link shows a 6-digit code to type in the console (onboard.rs, ONBOARDING.md §5)
+//!   pavilion-node accounts [add claude|codex|gemini <label>|disable|enable|remove <label>]   your own plan kept on this
+//!                             machine as a named slot; the pavilion sees the label, the provider and its state only
+//!                             (accounts.rs, slot_auth.rs, WORK-ROUTING §9). Plan logins stay on your machine; the
+//!                             pavilion's vault holds API keys only
+//!   pavilion-node login claude|codex   the same as `accounts add` (it says so): the vault path for plan logins is
+//!                             retired (onboard.rs, ONBOARDING §6)
+//!   pavilion-node run         stay connected; run jobs in fresh sandboxes; guard memory and disk; host the Steward and orchestrators (roles.rs)
 //!   pavilion-node inventory   print exactly what this machine reports
 //!   pavilion-node guard       memory, disk, level and slots right now
 //!   pavilion-node status      which pavilion this machine belongs to
 //!   pavilion-node storage [folder]   where VM images and disks live, e.g. a folder on an external drive
+//!   pavilion-node models …    the media model catalog, where models live, add and verify one (media/store.rs)
+//!   pavilion-node wsl …       Windows: install, check or remove the WSL distro jobs run in (sandbox/wsl.rs)
+//!   pavilion-node service …   Windows: start the node at logon (platform/windows.rs)
+//!   pavilion-node project push|pull <project> <folder>   a project's files to and from the pavilion (project.rs)
+//!   pavilion-node devices status|history|scan …   device actions on this computer (devices/, docs/DEVICES.md)
+//!   pavilion-node bridge add <broker> … | code | status | run | remove   a LAN broker's plugs and sensors as connected
+//!                             devices, with this machine as their gateway (bridge.rs, docs/IOT.md step 6)
+mod accounts;
+mod bridge;
+mod mqtt_ws;
+mod agent;
 mod broker;
+mod ceiling;
+mod cli;
+mod devices;
 mod guard;
 mod inventory;
 mod link;
+mod live;
+mod media;
+mod onboard;
+mod platform;
+mod project;
+mod relay;
+mod roles;
 mod sandbox;
 mod signing;
+mod slot_auth;
 mod state;
 
 use anyhow::{anyhow, bail, Result};
@@ -23,33 +53,52 @@ use std::time::Duration;
 async fn main() {
     let cmd = std::env::args().nth(1).unwrap_or_default();
     let r = match cmd.as_str() {
-        "join" => join().await,
-        "run" => link::run_forever().await,
+        "version" | "--version" | "-V" => { println!("pavilion-node {}", env!("CARGO_PKG_VERSION")); Ok(()) }
+        "join" => onboard::join(&std::env::args().skip(2).collect::<Vec<_>>()).await,
+        "login" => onboard::login(&std::env::args().skip(2).collect::<Vec<_>>()).await,
+        "accounts" => accounts::cli(&std::env::args().skip(2).collect::<Vec<_>>()).await,
+        "run" => { vm_storage_up(); link::run_forever().await }
         "inventory" => { println!("{}", serde_json::to_string_pretty(&inventory::collect().await).unwrap()); Ok(()) }
         "guard" => { guard_now(); Ok(()) }
         "storage" => storage(std::env::args().nth(2)).await,
         "exposure" => exposure().await,
-        "status" => state::load().map(|s| println!("{} · pavilion {} · machine {} · last event {}", s.name, s.pavilion, s.machine, s.last_seq)),
-        _ => { eprintln!("usage: pavilion-node join | run | inventory | guard | status | storage [folder] | exposure"); std::process::exit(2) }
+        "models" => media::store::cli(&std::env::args().skip(2).collect::<Vec<_>>()).await,
+        "project" => project::cli(&std::env::args().skip(2).collect::<Vec<_>>()).await,
+        "devices" => devices::cli(&std::env::args().skip(2).collect::<Vec<_>>()).await,
+        "bridge" => bridge::cli(&std::env::args().skip(2).collect::<Vec<_>>()).await,
+        "cli-tools" => cli::cli(&std::env::args().skip(2).collect::<Vec<_>>()),
+        "status" => state::load().map(|s| println!("{} · pavilion {} · machine {} · last event {}\n{}\n{}", s.name, s.pavilion, s.machine, s.last_seq, guard::SwapRule::configured().describe(), ceiling::status_line())),
+        #[cfg(windows)]
+        "wsl" => sandbox::wsl::cli(&std::env::args().skip(2).collect::<Vec<_>>()).await,
+        #[cfg(windows)]
+        "service" => platform::windows::service(&std::env::args().skip(2).collect::<Vec<_>>()),
+        #[cfg(not(windows))]
+        "wsl" | "service" => Err(anyhow!("`{cmd}` is for Windows")),
+        _ => { eprintln!("usage: pavilion-node version | join [<CODE> [--gate <url>] | <link>] | login claude|codex | accounts [add claude <label>|disable|enable|remove <label>] | run | inventory | guard | status | storage [folder] | exposure | models [storage|add|verify] | project push|pull <project> <folder> | devices status|history|scan … | bridge add <broker>|code|status|run|remove | cli-tools [list|add|remove]{}",
+            if cfg!(windows) { " | wsl [install <rootfs.tar>|status|remove] | service [install|uninstall|status]" } else { "" }); std::process::exit(2) }
     };
     if let Err(e) = r { eprintln!("error: {e:#}"); std::process::exit(1); }
 }
 
 fn guard_now() {
     let s = guard::sample();
-    let l = guard::Limits::defaults(&s);
+    let l = guard::Limits::configured(&s);
     let (lvl, why) = guard::level(&s, &l, 0.0);
     println!("{}", serde_json::to_string_pretty(&json!({ "level": lvl, "why": why, "sample": s, "limits": l,
         "vm_budget_mib": l.vm_budget_mib(&s), "slots_1gib": guard::slots(&s, &l, 1024), "slots_3gib": guard::slots(&s, &l, 3072) })).unwrap());
 }
 
 /// Where VM images and disks live. With a folder: check the drive, move Apple container's data there, remember it.
+/// On Windows: where the WSL distro's disk lives (platform/windows.rs).
+#[cfg_attr(windows, allow(unreachable_code))]
 async fn storage(path: Option<String>) -> Result<()> {
     let Some(path) = path else {
         let s = guard::sample();
         println!("VM storage: {} · {} GiB free of {} GiB{}", s.storage, s.disk_free_mib / 1024, s.disk_total_mib / 1024, if s.storage_missing { " · NOT MOUNTED" } else { "" });
         return Ok(());
     };
+    #[cfg(windows)]
+    return platform::windows::storage(&path).await;
     if !cfg!(target_os = "macos") { bail!("on Linux, set Podman's graphroot in storage.conf (phase 1)"); }
     let p = std::fs::canonicalize(&path).map_err(|_| anyhow!("{path} doesn't exist; make the folder first"))?;
     if !p.is_dir() { bail!("{} isn't a folder", p.display()); }
@@ -65,10 +114,8 @@ async fn storage(path: Option<String>) -> Result<()> {
     std::fs::create_dir_all(&root)?;
     eprintln!("Restarting Apple container with its data in {} (images are downloaded again there)…", root.display());
     let _ = std::process::Command::new("container").args(["system", "stop"]).status();
-    let ok = std::process::Command::new("container").args(["system", "start", "--enable-kernel-install", "--app-root"]).arg(&root).status()?.success();
-    if !ok { bail!("container system start --app-root {} failed", root.display()); }
-    std::fs::create_dir_all(state::dir())?;
-    std::fs::write(state::dir().join("config.json"), serde_json::to_vec_pretty(&json!({ "vm_storage": p.to_string_lossy() }))?)?;
+    start_container_at(&root)?;
+    state::set_config("vm_storage", json!(p.to_string_lossy()))?;
     let s = guard::sample();
     println!("VM storage is now {} · {} GiB free. The guard watches this drive, and stops every job if it's unplugged.", s.storage, s.disk_free_mib / 1024);
     Ok(())
@@ -79,19 +126,8 @@ async fn exposure() -> Result<()> {
     println!("listening beyond this machine: {:?}", sandbox::exposed_ports());
     let open = sandbox::probe_exposure().await?;
     if open.is_empty() { println!("a sandbox can reach none of them"); }
-    else { println!("a sandbox CAN reach: {}\nLoad the firewall rule: sudo node/pf/install.sh", open.join(", ")); }
+    else { println!("a sandbox CAN reach: {}\nLoad the firewall rule: {}", open.join(", "), platform::firewall_hint()); }
     Ok(())
-}
-
-/// `https://<gate>/m/<pavilion>/<token>` → (gate, pavilion, token)
-fn parse_link(link: &str) -> Result<(String, String, String)> {
-    let u = reqwest::Url::parse(link.trim()).map_err(|_| anyhow!("that isn't a link"))?;
-    let segs: Vec<&str> = u.path_segments().map(|s| s.collect()).unwrap_or_default();
-    let frag: Vec<&str> = u.fragment().unwrap_or("").trim_start_matches('/').split('/').collect();
-    let parts = if segs.first() == Some(&"m") { segs } else { frag };
-    if parts.len() != 3 || parts[0] != "m" { bail!("expected a machine link like https://…/m/<pavilion>/<token>"); }
-    let origin = format!("{}://{}{}", u.scheme(), u.host_str().unwrap_or_default(), u.port().map(|p| format!(":{p}")).unwrap_or_default());
-    Ok((origin, parts[1].to_string(), parts[2].to_string()))
 }
 
 async fn post(http: &reqwest::Client, gate: &str, host: &str, key: &ed25519_dalek::SigningKey, path: &str, body: &Value) -> Result<Value> {
@@ -105,11 +141,10 @@ async fn post(http: &reqwest::Client, gate: &str, host: &str, key: &ed25519_dale
     Ok(v)
 }
 
-async fn join() -> Result<()> {
-    eprint!("Paste the link from Machines › Add a machine (it isn't shown or saved): ");
-    let mut line = String::new();
-    std::io::stdin().read_line(&mut line)?;
-    let (gate, pavilion, token) = parse_link(&line)?;
+/// The join protocol itself (MACHINES.md §3): a new key, the commit, the reveal, the 6 digits, the owner's signed
+/// confirmation checked and pinned. Reached from a machine link, or from a pairing code exchanged for one (onboard.rs join).
+async fn join_with(gate: &str, pavilion: &str, token: &str, name: &str) -> Result<()> {
+    let (gate, pavilion) = (gate.to_string(), pavilion.to_string());
     let host = reqwest::Url::parse(&gate)?.host_str().unwrap_or_default().to_string() + &reqwest::Url::parse(&gate)?.port().map(|p| format!(":{p}")).unwrap_or_default();
     let http = reqwest::Client::new();
 
@@ -147,7 +182,7 @@ async fn join() -> Result<()> {
                     || body["code"].as_str() != Some(&code) || body["machineKey"].as_str() != Some(&my_id) || (!owner.is_empty() && kid != owner) {
                     bail!("the confirmation isn't signed by the owner for this code and this machine; not joining");
                 }
-                state::save(&state::State { gate: gate.clone(), pavilion: pavilion.clone(), machine: machine.clone(), name: "machine".into(), pavilion_key,
+                state::save(&state::State { gate: gate.clone(), pavilion: pavilion.clone(), machine: machine.clone(), name: name.into(), pavilion_key,
                     owner_key_id: kid.into(), owner_alg: alg.into(), owner_public_key: pk.into(), last_seq: 0 })?;
                 eprintln!("Joined {pavilion} as {machine}. Confirmed by {} ({kid}). Run `pavilion-node run` to stay connected.", c["name"].as_str().unwrap_or("the owner"));
                 return Ok(());
@@ -157,4 +192,68 @@ async fn join() -> Result<()> {
         }
     }
     bail!("nobody confirmed the code within 15 minutes")
+}
+
+/// Where the running Apple container service keeps its data (`paths.appRoot`), or None when it isn't running.
+#[cfg(target_os = "macos")]
+fn container_root() -> Option<std::path::PathBuf> {
+    let out = std::process::Command::new("container").args(["system", "status"]).output().ok()?;
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    let running = text.lines().any(|l| l.split_whitespace().collect::<Vec<_>>() == ["status", "running"]);
+    let root = text.lines().find_map(|l| l.strip_prefix("paths.appRoot").map(|v| v.trim().trim_end_matches('/').to_string()))?;
+    running.then(|| std::path::PathBuf::from(root))
+}
+
+/// Starts Apple container with its data in `root`. `container system start --app-root` writes the service's launchd
+/// file into the app root, and launchd refuses to load one from an external volume ("Bootstrap failed: 5: Input/output
+/// error", seen 13 Nov 2026 with ownership on or off). So when the plain start doesn't come up there, the same file is
+/// copied into the node's own folder on the boot disk and loaded from that copy, then the kernel is installed if the new
+/// root has none. Nothing else about the service changes.
+#[cfg(target_os = "macos")]
+fn start_container_at(root: &std::path::Path) -> Result<()> {
+    use std::process::Command;
+    let want = root.to_path_buf();
+    let here = |r: &Option<std::path::PathBuf>| r.as_ref().map_or(false, |r| std::fs::canonicalize(r).ok() == std::fs::canonicalize(&want).ok());
+    if Command::new("container").args(["system", "start", "--enable-kernel-install", "--app-root"]).arg(root).status()?.success() && here(&container_root()) {
+        return Ok(());
+    }
+    let plist = root.join("apiserver/apiserver.plist");
+    if !plist.exists() { bail!("container system start --app-root {} failed, and it wrote no launchd file to load instead", root.display()); }
+    std::fs::create_dir_all(state::dir())?;
+    let local = state::dir().join("container-apiserver.plist");
+    std::fs::copy(&plist, &local)?;
+    let uid = String::from_utf8_lossy(&Command::new("id").arg("-u").output()?.stdout).trim().to_string();
+    let _ = Command::new("launchctl").args(["bootout", &format!("gui/{uid}/com.apple.container.apiserver")]).status();
+    if !Command::new("launchctl").args(["bootstrap", &format!("gui/{uid}")]).arg(&local).status()?.success() {
+        bail!("launchctl couldn't load {} either", local.display());
+    }
+    for _ in 0..20 {
+        if here(&container_root()) { break; }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    if !here(&container_root()) { bail!("Apple container didn't come up with its data in {}", root.display()); }
+    // A new app root has no kernel yet; installing the recommended one is what `--enable-kernel-install` would have done.
+    let has_kernel = std::fs::read_dir(root.join("kernels")).map_or(false, |mut d| d.next().is_some());
+    if !has_kernel { let _ = Command::new("container").args(["system", "kernel", "set", "--recommended"]).status(); }
+    eprintln!("Apple container runs with its data in {} (loaded from {}, since launchd won't load it from that drive)", root.display(), local.display());
+    Ok(())
+}
+#[cfg(not(target_os = "macos"))]
+fn start_container_at(_root: &std::path::Path) -> Result<()> { Ok(()) }
+
+/// At `run`: if VM storage was moved (`vm_storage`) and the drive is there, make sure Apple container uses it. After a
+/// restart the service comes back on its default root, which is the boot disk, so without this jobs would quietly fill
+/// it. If the drive isn't mounted, the guard already refuses work (guard.rs); this only says so.
+fn vm_storage_up() {
+    #[cfg(target_os = "macos")]
+    {
+        let Some(base) = state::config()["vm_storage"].as_str().map(std::path::PathBuf::from) else { return };
+        if !base.is_dir() { eprintln!("VM storage {} isn't mounted; jobs wait until it is", base.display()); return; }
+        let root = base.join("pavilion-vms");
+        let ok = container_root().map_or(false, |r| std::fs::canonicalize(&r).ok() == std::fs::canonicalize(&root).ok());
+        if !ok {
+            let _ = std::process::Command::new("container").args(["system", "stop"]).status();
+            if let Err(e) = start_container_at(&root) { eprintln!("couldn't start Apple container on {}: {e:#}", root.display()); }
+        }
+    }
 }

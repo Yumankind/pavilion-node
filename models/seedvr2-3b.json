@@ -1,0 +1,13 @@
+{
+  "id": "seedvr2-3b",
+  "tasks": ["upscale"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"seed": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "params": {"type": "object", "additionalProperties": false, "properties": {"shortest_side": {"type": "integer", "minimum": 256, "maximum": 2048}, "softness": {"type": "number", "minimum": 0, "maximum": 1}}}}},
+  "references": {"subject": {"max": 1}},
+  "license": "apache-2.0",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": false,
+  "variants": [
+    {"platform": {"os": "macos", "arch": "arm64", "accel": "mlx"}, "runner": "mflux:seedvr2", "runtime": "mlx", "backends": ["mps"], "memory_gb": 9, "min_ram_gb": 16, "size_gb": 6.8, "timeout_s": 1200, "speed": null, "weights": {"hf": "numz/SeedVR2_comfyUI", "revision": "09ced71023636e9bc8cdf9cdecfb2625d1e691e8", "file": "seedvr2_ema_3b_fp16.safetensors"}, "install": [{"kind": "uv_tool", "package": "mflux==0.24.0"}, {"kind": "hf", "repo": "numz/SeedVR2_comfyUI", "revision": "09ced71023636e9bc8cdf9cdecfb2625d1e691e8", "include": ["seedvr2_ema_3b_fp16.safetensors", "ema_vae_fp16.safetensors"]}], "verified_on": "Apple M4, 16 GB (2026-11-13)"}
+  ]
+}

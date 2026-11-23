@@ -1,0 +1,14 @@
+{
+  "id": "test-pattern",
+  "tasks": ["image.generate", "image.edit"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"prompt": {"type": "string", "maxLength": 8000}, "n": {"type": "integer", "minimum": 1, "maximum": 4}, "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "size": {"type": "string", "maxLength": 11}, "params": {"type": "object", "additionalProperties": false, "properties": {"slow_s": {"type": "integer", "minimum": 0, "maximum": 120}}}}},
+  "references": {"subject": {"max": 1}},
+  "license": "LGPL-2.1-or-later",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": false,
+  "sizes": {"block": 16, "min_side": 64, "max_side": 1024, "max_pixels": 1048576, "default": {"width": 512, "height": 512}},
+  "variants": [
+    {"platform": {"os": "any", "arch": "any", "accel": "any"}, "runner": "ffmpeg:test-pattern", "runtime": "ffmpeg", "backends": ["cpu"], "memory_gb": 0.25, "min_ram_gb": 1, "size_gb": 0, "timeout_s": 300, "speed": {"per_unit": "image", "seconds": 1, "measured_on": "Apple M4"}, "install": [], "verified_on": "Apple M4, 16 GB (2026-11-13)"}
+  ]
+}

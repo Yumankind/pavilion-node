@@ -1,0 +1,13 @@
+{
+  "id": "parakeet-tdt-0.6b-v3",
+  "tasks": ["speech.transcribe"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"language": {"type": "string", "maxLength": 16}, "params": {"type": "object", "additionalProperties": false, "properties": {}}}},
+  "references": {"source_audio": {"max": 1}},
+  "license": "cc-by-4.0",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": false,
+  "variants": [
+    {"platform": {"os": "macos", "arch": "arm64", "accel": "mlx"}, "runner": "parakeet-mlx", "runtime": "mlx", "backends": ["mps"], "memory_gb": 2.5, "min_ram_gb": 8, "size_gb": 2.3, "timeout_s": 1800, "speed": null, "weights": {"hf": "mlx-community/parakeet-tdt-0.6b-v3", "revision": "ed2b7e8c15f9aaa0b5772e2efb986255eaef7e15"}, "install": [{"kind": "uv_tool", "package": "parakeet-mlx"}, {"kind": "hf", "repo": "mlx-community/parakeet-tdt-0.6b-v3", "revision": "ed2b7e8c15f9aaa0b5772e2efb986255eaef7e15"}], "verified_on": "Apple M4, 16 GB (2026-11-13)"}
+  ]
+}

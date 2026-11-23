@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.cloudpavilion.node</string>
+	<key>CFBundleName</key>
+	<string>Pavilion Node</string>
+	<key>CFBundleDisplayName</key>
+	<string>Pavilion Node</string>
+	<key>CFBundleExecutable</key>
+	<string>pavilion-node</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>0.1.0</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<!-- No Dock icon: it runs in the background and shows a window only to ask you. -->
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>An agent in your pavilion can ask for one photo or a short video from this Mac. You allow each one here, see it for 3 seconds, and can cancel before it's sent.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>An agent in your pavilion can ask to record a few seconds of sound. You allow each recording here and can cancel it before it's sent.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Agents can list nearby Bluetooth devices and read the ones you adopted (a thermometer, a light). Nothing is sent to a device you haven't adopted.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Agents can list the services on your network (printers, speakers) and call the devices you adopted, only on the paths you allowed.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+		<string>_https._tcp</string>
+		<string>_ipp._tcp</string>
+		<string>_ipps._tcp</string>
+		<string>_printer._tcp</string>
+		<string>_pdl-datastream._tcp</string>
+		<string>_scanner._tcp</string>
+		<string>_uscan._tcp</string>
+		<string>_airplay._tcp</string>
+		<string>_raop._tcp</string>
+		<string>_googlecast._tcp</string>
+		<string>_spotify-connect._tcp</string>
+		<string>_sonos._tcp</string>
+		<string>_hap._tcp</string>
+		<string>_matter._tcp</string>
+		<string>_matterc._udp</string>
+		<string>_mqtt._tcp</string>
+		<string>_home-assistant._tcp</string>
+		<string>_hue._tcp</string>
+		<string>_smb._tcp</string>
+		<string>_afpovertcp._tcp</string>
+		<string>_ssh._tcp</string>
+		<string>_sftp-ssh._tcp</string>
+		<string>_rfb._tcp</string>
+		<string>_device-info._tcp</string>
+		<string>_workstation._tcp</string>
+		<string>_companion-link._tcp</string>
+		<string>_esphomelib._tcp</string>
+		<string>_octoprint._tcp</string>
+		<string>_daap._tcp</string>
+	</array>
+	<key>NSLocationUsageDescription</key>
+	<string>An agent can ask where this Mac is, rounded to the accuracy you allow. You allow each request here.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>An agent can ask where this Mac is, rounded to the accuracy you allow. You allow each request here.</string>
+</dict>
+</plist>

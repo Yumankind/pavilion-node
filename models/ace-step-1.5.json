@@ -1,0 +1,14 @@
+{
+  "id": "ace-step-1.5",
+  "tasks": ["music.generate"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"prompt": {"type": "string", "maxLength": 2000}, "lyrics": {"type": "string", "maxLength": 4000}, "duration_s": {"type": "number", "minimum": 10, "maximum": 300}, "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "language": {"type": "string", "maxLength": 8}, "params": {"type": "object", "additionalProperties": false, "properties": {"steps": {"type": "integer", "minimum": 1, "maximum": 64}}}}, "required": ["prompt"]},
+  "references": {},
+  "license": "mit",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": false,
+  "variants": [
+    {"platform": {"os": "macos", "arch": "arm64", "accel": "mlx"}, "runner": "acestep-api", "runtime": "python", "backends": ["mps"], "memory_gb": 8, "min_ram_gb": 16, "size_gb": 9.4, "timeout_s": 1800, "speed": null, "weights": null, "install": [{"kind": "git", "repo": "github.com/ACE-Step/ACE-Step-1.5", "dir": "runners/ACE-Step-1.5"}, {"kind": "manual", "note": "in runners/ACE-Step-1.5 run uv sync, then uv run acestep-download (checkpoints acestep-v15-turbo and vae; acestep-5Hz-lm-1.7B for sung lyrics)"}], "verified_on": null},
+    {"platform": {"os": "linux", "arch": "any", "accel": "cuda", "min_vram_gb": 12}, "runner": "acestep-api", "runtime": "python", "backends": ["cuda"], "memory_gb": 8, "min_ram_gb": 16, "size_gb": 9.4, "timeout_s": 1800, "speed": null, "weights": null, "install": [{"kind": "git", "repo": "github.com/ACE-Step/ACE-Step-1.5", "dir": "runners/ACE-Step-1.5"}, {"kind": "manual", "note": "in runners/ACE-Step-1.5 run uv sync, then uv run acestep-download (checkpoints acestep-v15-turbo and vae; acestep-5Hz-lm-1.7B for sung lyrics)"}], "verified_on": null}
+  ]
+}

@@ -1,0 +1,303 @@
+{
+  "note": "Shared test vectors for pavilion-iot. Made by the Gate's own code (gate/test/iot-vectors.test.ts); do not edit by hand.",
+  "version": 1,
+  "keys": {
+    "pavilion": {
+      "alg": "Ed25519",
+      "seedHex": "4d4152434f20504f4c4f20574153204845524520494e203132393500000000ff",
+      "publicKey": "jP20pZ90zVl5bLtGE1Td6fDnitSQWHPPr9RWWUKQDqM"
+    },
+    "approver": {
+      "alg": "P-256",
+      "privateScalarHex": "c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721",
+      "publicKey": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
+      "keyId": "2HlPo5CPKI-QA8xf-iDXFN"
+    }
+  },
+  "strings": {
+    "request": {
+      "device": "iot_abcdef012345",
+      "method": "POST",
+      "path": "/p/acme/iot/up",
+      "counter": 42,
+      "bodyHash": "8JR8htzJ2BzbPfyvx3kZ0F_DY8biknAqxjBPr8ULW1w",
+      "expect": "pavilion-iot-v1\niot_abcdef012345\nPOST\n/p/acme/iot/up\n42\n8JR8htzJ2BzbPfyvx3kZ0F_DY8biknAqxjBPr8ULW1w"
+    },
+    "approve": {
+      "act": "act_0123456789abcdef0123",
+      "argsHash": "jAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM",
+      "expect": "pavilion-iot-approve-v1\nact_0123456789abcdef0123\njAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM"
+    },
+    "ack": {
+      "act": "act_0123456789abcdef0123",
+      "argsHash": "jAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM",
+      "result": "done",
+      "expect": "pavilion-iot-ack-v1\nact_0123456789abcdef0123\njAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM\ndone"
+    },
+    "claim": {
+      "fingerprint": "lqjS1fDWWaiDKWHdWEiowX",
+      "secret": "WL3VDB34QS",
+      "expect": "QhKOxeqG7y95nVwYCXaotbUTINkDObyLlEx17hpGDj0"
+    }
+  },
+  "argsHash": {
+    "device": "iot_abcdef012345",
+    "command": "unlock",
+    "args": {
+      "seconds": 7
+    },
+    "expect": "jAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM"
+  },
+  "command": {
+    "pavilion": "acme",
+    "device": "iot_abcdef012345",
+    "template": "lock-keypad/1",
+    "challenge": "Q0hBTExFTkdFLTAwMQ",
+    "now": 1763040010,
+    "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"action\":\"act_0123456789abcdef0123\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":7},\"argsHash\":\"jAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM\",\"kind\":\"critical\",\"by\":\"agent:greenhouse\",\"agent\":\"greenhouse\",\"text\":\"greenhouse wants to unlock it for 7 s: Front door\",\"reason\":\"the guest is at the door\",\"issuedAt\":1763040000,\"expiresAt\":1763040060,\"challenge\":\"Q0hBTExFTkdFLTAwMQ\",\"approval\":{\"member\":\"MEMBERKEY0000000000000\",\"key\":\"2HlPo5CPKI-QA8xf-iDXFN\",\"sig\":\"3yuTBPvxNSaCufwqd3cys5K9hL17K5XOkdUS9T29rOECUoZPBBD7PSZgWnyZ4bFzOtUqnuCbF979PP1rQDUlfw\"}}",
+    "sig": "VvtET7zSLhHmiEfjpZq0kemO0LaQ8-EfOrX8KF572cmlcSOTqOXaUsi2mOa4ZLvm9Pm3KMH7zPJBTDdP7GtsDw",
+    "expect": "accepted"
+  },
+  "refusals": [
+    {
+      "why": "bad pavilion signature",
+      "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"action\":\"act_0123456789abcdef0123\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":7},\"argsHash\":\"jAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM\",\"kind\":\"critical\",\"by\":\"agent:greenhouse\",\"agent\":\"greenhouse\",\"text\":\"greenhouse wants to unlock it for 7 s: Front door\",\"reason\":\"the guest is at the door\",\"issuedAt\":1763040000,\"expiresAt\":1763040060,\"challenge\":\"Q0hBTExFTkdFLTAwMQ\",\"approval\":{\"member\":\"MEMBERKEY0000000000000\",\"key\":\"2HlPo5CPKI-QA8xf-iDXFN\",\"sig\":\"3yuTBPvxNSaCufwqd3cys5K9hL17K5XOkdUS9T29rOECUoZPBBD7PSZgWnyZ4bFzOtUqnuCbF979PP1rQDUlfw\"}}",
+      "sig": "V_tET7zSLhHmiEfjpZq0kemO0LaQ8-EfOrX8KF572cmlcSOTqOXaUsi2mOa4ZLvm9Pm3KMH7zPJBTDdP7GtsDw",
+      "forged": true
+    },
+    {
+      "why": "stale challenge",
+      "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"action\":\"act_0123456789abcdef0123\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":7},\"argsHash\":\"jAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM\",\"kind\":\"critical\",\"by\":\"agent:greenhouse\",\"agent\":\"greenhouse\",\"text\":\"greenhouse wants to unlock it for 7 s: Front door\",\"reason\":\"the guest is at the door\",\"issuedAt\":1763040000,\"expiresAt\":1763040060,\"challenge\":\"Q0hBTExFTkdFLTAwMQ\",\"approval\":{\"member\":\"MEMBERKEY0000000000000\",\"key\":\"2HlPo5CPKI-QA8xf-iDXFN\",\"sig\":\"3yuTBPvxNSaCufwqd3cys5K9hL17K5XOkdUS9T29rOECUoZPBBD7PSZgWnyZ4bFzOtUqnuCbF979PP1rQDUlfw\"}}",
+      "sig": "VvtET7zSLhHmiEfjpZq0kemO0LaQ8-EfOrX8KF572cmlcSOTqOXaUsi2mOa4ZLvm9Pm3KMH7zPJBTDdP7GtsDw",
+      "challenge": "OTHER-CHALLENGE"
+    },
+    {
+      "why": "expired",
+      "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"action\":\"act_0123456789abcdef0123\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":7},\"argsHash\":\"jAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM\",\"kind\":\"critical\",\"by\":\"agent:greenhouse\",\"agent\":\"greenhouse\",\"text\":\"greenhouse wants to unlock it for 7 s: Front door\",\"reason\":\"the guest is at the door\",\"issuedAt\":1763040000,\"expiresAt\":1763040060,\"challenge\":\"Q0hBTExFTkdFLTAwMQ\",\"approval\":{\"member\":\"MEMBERKEY0000000000000\",\"key\":\"2HlPo5CPKI-QA8xf-iDXFN\",\"sig\":\"3yuTBPvxNSaCufwqd3cys5K9hL17K5XOkdUS9T29rOECUoZPBBD7PSZgWnyZ4bFzOtUqnuCbF979PP1rQDUlfw\"}}",
+      "sig": "VvtET7zSLhHmiEfjpZq0kemO0LaQ8-EfOrX8KF572cmlcSOTqOXaUsi2mOa4ZLvm9Pm3KMH7zPJBTDdP7GtsDw",
+      "now": 1763040061
+    },
+    {
+      "why": "already done (replay)",
+      "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"action\":\"act_0123456789abcdef0123\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":7},\"argsHash\":\"jAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM\",\"kind\":\"critical\",\"by\":\"agent:greenhouse\",\"agent\":\"greenhouse\",\"text\":\"greenhouse wants to unlock it for 7 s: Front door\",\"reason\":\"the guest is at the door\",\"issuedAt\":1763040000,\"expiresAt\":1763040060,\"challenge\":\"Q0hBTExFTkdFLTAwMQ\",\"approval\":{\"member\":\"MEMBERKEY0000000000000\",\"key\":\"2HlPo5CPKI-QA8xf-iDXFN\",\"sig\":\"3yuTBPvxNSaCufwqd3cys5K9hL17K5XOkdUS9T29rOECUoZPBBD7PSZgWnyZ4bFzOtUqnuCbF979PP1rQDUlfw\"}}",
+      "sig": "VvtET7zSLhHmiEfjpZq0kemO0LaQ8-EfOrX8KF572cmlcSOTqOXaUsi2mOa4ZLvm9Pm3KMH7zPJBTDdP7GtsDw",
+      "seen": [
+        "act_0123456789abcdef0123"
+      ]
+    },
+    {
+      "why": "meant for another device",
+      "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"action\":\"act_0123456789abcdef0123\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":7},\"argsHash\":\"jAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM\",\"kind\":\"critical\",\"by\":\"agent:greenhouse\",\"agent\":\"greenhouse\",\"text\":\"greenhouse wants to unlock it for 7 s: Front door\",\"reason\":\"the guest is at the door\",\"issuedAt\":1763040000,\"expiresAt\":1763040060,\"challenge\":\"Q0hBTExFTkdFLTAwMQ\",\"approval\":{\"member\":\"MEMBERKEY0000000000000\",\"key\":\"2HlPo5CPKI-QA8xf-iDXFN\",\"sig\":\"3yuTBPvxNSaCufwqd3cys5K9hL17K5XOkdUS9T29rOECUoZPBBD7PSZgWnyZ4bFzOtUqnuCbF979PP1rQDUlfw\"}}",
+      "sig": "VvtET7zSLhHmiEfjpZq0kemO0LaQ8-EfOrX8KF572cmlcSOTqOXaUsi2mOa4ZLvm9Pm3KMH7zPJBTDdP7GtsDw",
+      "device": "iot_000000000000"
+    },
+    {
+      "why": "no approver signature",
+      "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"action\":\"act_0123456789abcdef0123\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":7},\"argsHash\":\"jAFCaKH29QABT9WsKHv2zPvMr4ANTPewZ9lyA4VK3eM\",\"kind\":\"critical\",\"by\":\"agent:greenhouse\",\"agent\":\"greenhouse\",\"text\":\"greenhouse wants to unlock it for 7 s: Front door\",\"reason\":\"the guest is at the door\",\"issuedAt\":1763040000,\"expiresAt\":1763040060,\"challenge\":\"Q0hBTExFTkdFLTAwMQ\",\"approval\":null}",
+      "sig": "vaiJ5Ur4WfeHou08EPLlGM5uNSPbcV0CuxMAzK9MktPqjInHLRn8uULKVcP1wRsqix-t3ELXrcdbFuTIsWtECA"
+    }
+  ],
+  "cbor": {
+    "hex": "a1617281a361636b74656d70657261747572656176fb4037666666666666617401",
+    "expect": {
+      "r": [
+        {
+          "c": "temperature",
+          "v": 23.4,
+          "t": 1
+        }
+      ]
+    }
+  },
+  "lock": {
+    "owner": {
+      "alg": "Ed25519",
+      "seedHex": "4f574e4552204b4559204f4620544845204c4f434b20494e20464c41542032ff",
+      "publicKey": "TKDi1l03fiQGH0tv8phpaCsBIjLS0hywPm_SE5ZzJ5c",
+      "keyId": "n6qOw1AxYt6LTpRRB6LMki"
+    },
+    "firmware": {
+      "max_unlock_s": 12
+    },
+    "version": 1,
+    "config": {
+      "pavilion": "acme",
+      "device": "iot_abcdef012345",
+      "template": "lock-keypad/1",
+      "payload": "{\"v\":1,\"kind\":\"iot-config\",\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"version\":2,\"issuedAt\":1763040000,\"approvers\":[{\"member\":\"MEMBERKEY0000000000000\",\"name\":\"Bruno\",\"key\":\"BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk\",\"keyId\":\"2HlPo5CPKI-QA8xf-iDXFN\"}],\"settings\":{\"fail\":\"secure\",\"max_unlock_s\":8,\"max_code_days\":30,\"unlocks_per_hour\":30,\"keypad_tries\":3,\"keypad_lockout_s\":300,\"code_digits\":6}}",
+      "sig": "a2FjuqGM05D4gAYqHD-99WQa7NjLjgbxS-5syDf9uZEmIhmbsH0ZfdBETVTrHzmQo3YWnDqb0hvAUiUomwn1DA",
+      "expect": {
+        "version": 2,
+        "settings": {
+          "fail": "secure",
+          "max_unlock_s": 8,
+          "max_code_days": 30,
+          "unlocks_per_hour": 30,
+          "keypad_tries": 3,
+          "keypad_lockout_s": 300,
+          "code_digits": 6
+        }
+      }
+    },
+    "refusedDocuments": [
+      {
+        "reason": "not signed by the owner key this lock pinned",
+        "payload": "{\"v\":1,\"kind\":\"iot-config\",\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"version\":2,\"issuedAt\":1763040000,\"approvers\":[{\"member\":\"MEMBERKEY0000000000000\",\"name\":\"Bruno\",\"key\":\"BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk\",\"keyId\":\"2HlPo5CPKI-QA8xf-iDXFN\"}],\"settings\":{\"fail\":\"secure\",\"max_unlock_s\":8,\"max_code_days\":30,\"unlocks_per_hour\":30,\"keypad_tries\":3,\"keypad_lockout_s\":300,\"code_digits\":6}}",
+        "sig": "tkWJAnU8xb6Kt5fcWroj6KUjVI2_46056JRhhrq1dcuehO8oZ6shcqnXGU7gGNbIqbHdQaZqD1UUdceG9c5UDQ",
+        "forged": true
+      },
+      {
+        "reason": "meant for another device",
+        "payload": "{\"v\":1,\"kind\":\"iot-config\",\"pavilion\":\"acme\",\"device\":\"iot_000000000000\",\"version\":2,\"issuedAt\":1763040000,\"approvers\":[{\"member\":\"MEMBERKEY0000000000000\",\"name\":\"Bruno\",\"key\":\"BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk\",\"keyId\":\"2HlPo5CPKI-QA8xf-iDXFN\"}],\"settings\":{\"fail\":\"secure\",\"max_unlock_s\":8,\"max_code_days\":30,\"unlocks_per_hour\":30,\"keypad_tries\":3,\"keypad_lockout_s\":300,\"code_digits\":6}}",
+        "sig": "RPXjVYv9iVa-g8DHhVBzN7UDXj0p7sXEI-DdJ7LxCUG2vIXcXmBue0zPlolUAiRAcaDJH44aefDmL9HQzNyeBg"
+      },
+      {
+        "reason": "version 1 is not newer than the 1 this lock has",
+        "payload": "{\"v\":1,\"kind\":\"iot-config\",\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"version\":1,\"issuedAt\":1763040000,\"approvers\":[{\"member\":\"MEMBERKEY0000000000000\",\"name\":\"Bruno\",\"key\":\"BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk\",\"keyId\":\"2HlPo5CPKI-QA8xf-iDXFN\"}],\"settings\":{\"fail\":\"secure\",\"max_unlock_s\":8,\"max_code_days\":30,\"unlocks_per_hour\":30,\"keypad_tries\":3,\"keypad_lockout_s\":300,\"code_digits\":6}}",
+        "sig": "66s2cclYcsuPDPZJhuhH7ohP4FzdnTdbFzEbVbZiYmadYuzoiQcK5cL3VqJmNLMHGEvS9SnkmK7qIm_jzWvoCw"
+      },
+      {
+        "reason": "an approver’s keyId is not its key’s",
+        "payload": "{\"v\":1,\"kind\":\"iot-config\",\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"version\":2,\"issuedAt\":1763040000,\"approvers\":[{\"member\":\"MEMBERKEY0000000000000\",\"name\":\"Bruno\",\"key\":\"BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk\",\"keyId\":\"AAAAAAAAAAAAAAAAAAAAAA\"}],\"settings\":{\"fail\":\"secure\",\"max_unlock_s\":8,\"max_code_days\":30,\"unlocks_per_hour\":30,\"keypad_tries\":3,\"keypad_lockout_s\":300,\"code_digits\":6}}",
+        "sig": "gSAyHf5HLFqpGvrefzNU-cHxIThWfHR7BltOAWgkyWHkX8KoQGiYco9IKr40gds5DB6ll4BaskTDBFymfeFzAw"
+      },
+      {
+        "reason": "max_unlock_s 20 is above this lock’s firmware ceiling of 12 s, which nothing in the cloud can raise",
+        "payload": "{\"v\":1,\"kind\":\"iot-config\",\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"version\":2,\"issuedAt\":1763040000,\"approvers\":[{\"member\":\"MEMBERKEY0000000000000\",\"name\":\"Bruno\",\"key\":\"BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk\",\"keyId\":\"2HlPo5CPKI-QA8xf-iDXFN\"}],\"settings\":{\"fail\":\"secure\",\"max_unlock_s\":20,\"max_code_days\":30,\"unlocks_per_hour\":30,\"keypad_tries\":3,\"keypad_lockout_s\":300,\"code_digits\":6}}",
+        "sig": "jDiquNiUFhJXbZ6MObrvxs6fw7ZPoTvR0QWJYa8GqbB--e-kxGRCBgujdu_taxOQq0Y-YKZCPY1LsDuJxMHDCw"
+      }
+    ],
+    "configAck": {
+      "device": "iot_abcdef012345",
+      "version": 2,
+      "result": "done",
+      "expect": "pavilion-iot-config-ack-v1\niot_abcdef012345\n2\ndone"
+    },
+    "codeHash": {
+      "device": "iot_abcdef012345",
+      "code": "482913",
+      "expect": "wtnOvLP4902PhrjomEKLKELAu0NaaEyaXZVHH65YuKc"
+    }
+  },
+  "gateway": {
+    "target": {
+      "gateway": "iot_abcdef012345",
+      "sub": "zb_front_lock",
+      "expect": "iot_abcdef012345/zb_front_lock"
+    },
+    "argsHash": {
+      "device": "iot_abcdef012345/zb_front_lock",
+      "command": "unlock",
+      "args": {
+        "seconds": 7
+      },
+      "expect": "dLX4wemTnUF7m80U8_S1j1TbsZ08lqa9dty9Q0MdcF0"
+    },
+    "subs": {
+      "zb_front_lock": "lock-keypad/1",
+      "zb_back_door": "lock-keypad/1",
+      "zb_kitchen_door": "door-contact/1"
+    },
+    "command": {
+      "pavilion": "acme",
+      "device": "iot_abcdef012345",
+      "template": "gateway/1",
+      "challenge": "poll:42",
+      "now": 1763040010,
+      "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"sub\":\"zb_front_lock\",\"action\":\"act_0123456789abcdef0124\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":7},\"argsHash\":\"dLX4wemTnUF7m80U8_S1j1TbsZ08lqa9dty9Q0MdcF0\",\"kind\":\"critical\",\"by\":\"person:Ana\",\"agent\":null,\"text\":\"Ana wants to unlock it for 7 s: Front door (through Pi gateway)\",\"reason\":null,\"issuedAt\":1763040000,\"expiresAt\":1763040060,\"challenge\":\"poll:42\",\"approval\":{\"member\":\"MEMBERKEY0000000000000\",\"key\":\"2HlPo5CPKI-QA8xf-iDXFN\",\"sig\":\"aOfdHHoAHuOMahY19bp7ydSJO6k9arLXcCLjaqpuCwkSBU0xFAryjmd4JaJVuAaOVp9-ydMVHgIPxsoRM1aojQ\"}}",
+      "sig": "Ef1IJeVQv8RrJzpp6eHQhx9jAEJOkRHQiCiZ0Bgu2EDoi5S3CBWKSx3eqxLhvBfnG7-TmyR6zbYE5X-aBg6UAw",
+      "expect": "accepted"
+    },
+    "refusals": [
+      {
+        "reason": "the arguments do not match their hash",
+        "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"sub\":\"zb_back_door\",\"action\":\"act_0123456789abcdef0124\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":7},\"argsHash\":\"dLX4wemTnUF7m80U8_S1j1TbsZ08lqa9dty9Q0MdcF0\",\"kind\":\"critical\",\"by\":\"person:Ana\",\"agent\":null,\"text\":\"Ana wants to unlock it for 7 s: Front door (through Pi gateway)\",\"reason\":null,\"issuedAt\":1763040000,\"expiresAt\":1763040060,\"challenge\":\"poll:42\",\"approval\":{\"member\":\"MEMBERKEY0000000000000\",\"key\":\"2HlPo5CPKI-QA8xf-iDXFN\",\"sig\":\"aOfdHHoAHuOMahY19bp7ydSJO6k9arLXcCLjaqpuCwkSBU0xFAryjmd4JaJVuAaOVp9-ydMVHgIPxsoRM1aojQ\"}}",
+        "sig": "CH_9YLl4PAx4okOmkg125TX7rUM00eWi4O20A-wvCqgsoDizS0ipT5rxbAaBSg9YN48ieewW-RruDTkj8VawCA"
+      },
+      {
+        "reason": "no sub-device zb_garage behind this gateway",
+        "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_abcdef012345\",\"sub\":\"zb_garage\",\"action\":\"act_0123456789abcdef0124\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":7},\"argsHash\":\"dLX4wemTnUF7m80U8_S1j1TbsZ08lqa9dty9Q0MdcF0\",\"kind\":\"critical\",\"by\":\"person:Ana\",\"agent\":null,\"text\":\"Ana wants to unlock it for 7 s: Front door (through Pi gateway)\",\"reason\":null,\"issuedAt\":1763040000,\"expiresAt\":1763040060,\"challenge\":\"poll:42\",\"approval\":{\"member\":\"MEMBERKEY0000000000000\",\"key\":\"2HlPo5CPKI-QA8xf-iDXFN\",\"sig\":\"aOfdHHoAHuOMahY19bp7ydSJO6k9arLXcCLjaqpuCwkSBU0xFAryjmd4JaJVuAaOVp9-ydMVHgIPxsoRM1aojQ\"}}",
+        "sig": "6usgeq8sepFH0Vg4KO8BLnYquOeyjpYnTEq2BOL3CLB-KtVONUlHK9rnO6myUfcq8G7FN2xDLSnmLzeUVU9vBQ"
+      }
+    ]
+  },
+  "device": {
+    "message": "pavilion-iot-v1\niot_abcdef012345\nPOST\n/p/acme/iot/up\n42\n8JR8htzJ2BzbPfyvx3kZ0F_DY8biknAqxjBPr8ULW1w",
+    "p256": {
+      "privateScalarHex": "b95ae910111af137503c809879bc3f3a1ba0d8f6a4c1fc4e90c37f70f3ddd103",
+      "publicKey": "BFLf3yCtIOBiJDNyZzHjwgvRmMRmri2YDNYk0h5ArCAznKSUJgn7FVDexp7hMAzCXgr4MXZMEQvoQo-1WsGYV_Q",
+      "keyId": "IiarxVhsakR23GPY9tY1xZ",
+      "sig": "YOfYyWttNSrbFp_U65x7lPLENbSkRM-Ni57S3qNMJZYFf-eQtv4ZF_s2hrTzeGcwL08qrF4G_PwyiUAALztApQ"
+    },
+    "ed25519": {
+      "seedHex": "444556494345204b4559204f4620412053454e534f52204f4e20544845205049",
+      "publicKey": "gBwzmiVSfgKMLd93Yjco8GwRW8i11TzmdCQLAqHU5uI",
+      "keyId": "83UzKc-0-j9fnMtMjq5mL6",
+      "sig": "LjXXYffEX_6zfi3Vg1uZqRuNKtKg7RqLiH8JPCLwZQ767tXS_GxUQZNqi8NbqSgLlNavddzQr790cw75KZldCw"
+    },
+    "claimCode": {
+      "fingerprint": "IiarxVhsakR23GPY9tY1xZ",
+      "secret": "WL3VDB34QS",
+      "template": "esp32-th/1",
+      "expect": "pavilion-claim:1?f=IiarxVhsakR23GPY9tY1xZ&c=WL3VDB34QS&t=esp32-th/1",
+      "claim": "xPG4D_axo2zex_CJDh00l-W_OjTtMzaD3aKekNdDCD0"
+    }
+  },
+  "sharedSecret": {
+    "device": "iot_sharedkey001",
+    "keyHex": "53484152454420534543524554204f46204120434845415020424f4152442121",
+    "key": "U0hBUkVEIFNFQ1JFVCBPRiBBIENIRUFQIEJPQVJEISE",
+    "method": "POST",
+    "path": "/p/acme/iot/up",
+    "counter": 7,
+    "body": "{\"r\":[{\"c\":\"temperature\",\"v\":21.5,\"t\":1763040000}]}",
+    "bodyHash": "JaRbpeb3G3PKcTJpSOd4qYD79B-n6X-bvVdBeoeocN4",
+    "message": "pavilion-iot-v1\niot_sharedkey001\nPOST\n/p/acme/iot/up\n7\nJaRbpeb3G3PKcTJpSOd4qYD79B-n6X-bvVdBeoeocN4",
+    "mac": "OtSaJ2cWQGZaF8-b8G_LQf20d2Cj13T6R1KMKehHEmo",
+    "critical": {
+      "template": "lock-keypad/1",
+      "command": "unlock",
+      "args": {
+        "seconds": 5
+      },
+      "refused": "unlock is safety-critical, and a shared-secret device never gets critical commands"
+    },
+    "command": {
+      "pavilion": "acme",
+      "device": "iot_sharedkey001",
+      "template": "lock-keypad/1",
+      "challenge": "poll:8",
+      "now": 1763040010,
+      "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_sharedkey001\",\"action\":\"act_0123456789abcdef0125\",\"tool\":\"iot_command\",\"command\":\"lock\",\"args\":{},\"argsHash\":\"w9U-siCzIWDj7sKxMEQJh9tdvR_2_zgS21GUC-Suoiw\",\"kind\":\"act\",\"by\":\"person:Ana\",\"agent\":null,\"text\":\"Ana wants to lock it: Back gate\",\"reason\":null,\"issuedAt\":1763040000,\"expiresAt\":1763040120,\"challenge\":\"poll:8\",\"approval\":null}",
+      "mac": "9h7EyiFl0f57jTyxB9QMoInHd5V_Lh-PFD8p8g2B8kI",
+      "expect": "accepted"
+    },
+    "ack": {
+      "act": "act_0123456789abcdef0125",
+      "argsHash": "w9U-siCzIWDj7sKxMEQJh9tdvR_2_zgS21GUC-Suoiw",
+      "result": "done",
+      "message": "pavilion-iot-ack-v1\nact_0123456789abcdef0125\nw9U-siCzIWDj7sKxMEQJh9tdvR_2_zgS21GUC-Suoiw\ndone",
+      "mac": "24SOvbKGPbqBQ78c_ZIxelxUQFg_isdDOjKGwrbl4aQ"
+    },
+    "refusals": [
+      {
+        "why": "bad pavilion MAC",
+        "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_sharedkey001\",\"action\":\"act_0123456789abcdef0125\",\"tool\":\"iot_command\",\"command\":\"lock\",\"args\":{},\"argsHash\":\"w9U-siCzIWDj7sKxMEQJh9tdvR_2_zgS21GUC-Suoiw\",\"kind\":\"act\",\"by\":\"person:Ana\",\"agent\":null,\"text\":\"Ana wants to lock it: Back gate\",\"reason\":null,\"issuedAt\":1763040000,\"expiresAt\":1763040120,\"challenge\":\"poll:8\",\"approval\":null}",
+        "mac": "9x7EyiFl0f57jTyxB9QMoInHd5V_Lh-PFD8p8g2B8kI",
+        "forged": true
+      },
+      {
+        "why": "bad pavilion MAC",
+        "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_sharedkey001\",\"action\":\"act_0123456789abcdef0125\",\"tool\":\"iot_command\",\"command\":\"lock\",\"args\":{},\"argsHash\":\"w9U-siCzIWDj7sKxMEQJh9tdvR_2_zgS21GUC-Suoiw\",\"kind\":\"act\",\"by\":\"person:Ana\",\"agent\":null,\"text\":\"Ana wants to lock it: Back gate\",\"reason\":null,\"issuedAt\":1763040000,\"expiresAt\":1763040120,\"challenge\":\"poll:8\",\"approval\":null}",
+        "mac": "Ugoe9VgXIUKjdj1bY5_Xy-H7B3NrJ2alzj8N6qUg2ng46uLY5HZP1lPnl-QGolV_VXR_mNruSDHbSKz0iyKiBA",
+        "forged": true,
+        "note": "signed with the pavilion key, which a shared-secret device never pinned"
+      },
+      {
+        "why": "a shared-secret device never takes a critical command",
+        "payload": "{\"v\":1,\"pavilion\":\"acme\",\"device\":\"iot_sharedkey001\",\"action\":\"act_0123456789abcdef0126\",\"tool\":\"iot_command\",\"command\":\"unlock\",\"args\":{\"seconds\":5},\"argsHash\":\"DMpqZ8jbwFdVOjOu4RlrPgCVr8NLQXES4LCE5nnYTDs\",\"kind\":\"critical\",\"by\":\"person:Ana\",\"agent\":null,\"text\":\"Ana wants to unlock it for 5 s: Back gate\",\"reason\":null,\"issuedAt\":1763040000,\"expiresAt\":1763040120,\"challenge\":\"poll:8\",\"approval\":{\"member\":\"MEMBERKEY0000000000000\",\"key\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"sig\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}}",
+        "mac": "SCEWyuiMnNJW_8bnpvw_RA0nVNyETAjUYyU5TC5Kxk0"
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+# gitleaks: use the default rules, and allow two test fixtures that hold made-up secrets by design: a throwaway
+# self-signed certificate's key for the Google Cast TLS tests (src/devices/standards/cast.rs), and the shared IoT test
+# vectors, whose "shared secret" is the text SHARED SECRET OF A CHEAP BOARD!!. Neither protects anything.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "test fixtures"
+paths = ['''src/devices/standards/testdata/cast-key\.pem''', '''test/iot-vectors\.json''']

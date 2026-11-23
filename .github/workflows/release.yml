@@ -1,0 +1,40 @@
+name: release
+# Builds the pavilion-node binaries for a release tag (vX.Y.Z). Nothing is signed or published here: the maintainer
+# downloads these artifacts, wraps the macOS ones in the notarized app, signs every file with the release key (which
+# never leaves the maintainer's machine) and publishes the GitHub release with SHA256SUMS and its signature.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: {}
+permissions: { contents: read }
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl,  os: ubuntu-24.04,     file: pavilion-node,     musl: true }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, file: pavilion-node,     musl: true }
+          - { target: aarch64-apple-darwin,       os: macos-15,         file: pavilion-node }
+          - { target: x86_64-apple-darwin,        os: macos-15,         file: pavilion-node }
+          - { target: x86_64-pc-windows-msvc,     os: windows-2025,     file: pavilion-node.exe }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: '${{ matrix.target }}' }
+      - if: ${{ matrix.musl }}
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
+      - name: build
+        shell: bash
+        run: |
+          if [ "${{ matrix.musl }}" = true ]; then export CC="musl-gcc"; fi
+          cargo build --release --locked --target ${{ matrix.target }}
+          mkdir -p out && cp "target/${{ matrix.target }}/release/${{ matrix.file }}" out/
+          ./out/${{ matrix.file }} version || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pavilion-node-${{ matrix.target }}
+          path: out/${{ matrix.file }}
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,13 @@
+{
+  "id": "kokoro-82m",
+  "tasks": ["speech"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"prompt": {"type": "string", "maxLength": 4000}, "language": {"type": "string", "enum": ["en", "en-us", "en-gb"]}, "params": {"type": "object", "additionalProperties": false, "properties": {"voice": {"type": "string", "enum": ["af_heart", "af_alloy", "af_aoede", "af_bella", "af_jessica", "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky", "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck", "bf_alice", "bf_emma", "bf_isabella", "bf_lily", "bm_daniel", "bm_fable", "bm_george", "bm_lewis"]}, "speed": {"type": "number", "minimum": 0.5, "maximum": 2}}}}, "required": ["prompt"]},
+  "references": {},
+  "license": "apache-2.0",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": false,
+  "variants": [
+    {"platform": {"os": "macos", "arch": "arm64", "accel": "mlx"}, "runner": "mlx-audio:kokoro", "runtime": "mlx", "backends": ["mps"], "memory_gb": 1, "min_ram_gb": 8, "size_gb": 0.4, "timeout_s": 600, "speed": {"per_unit": "10 s of speech", "seconds": 3, "measured_on": "Apple M4"}, "weights": {"hf": "mlx-community/Kokoro-82M-bf16", "revision": "a71e4d38b236d968966a2002c4c895dbd12b1c3c"}, "install": [{"kind": "uv_tool", "package": "mlx-audio", "with": ["misaki[en]", "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"]}, {"kind": "hf", "repo": "mlx-community/Kokoro-82M-bf16", "revision": "a71e4d38b236d968966a2002c4c895dbd12b1c3c", "include": ["*.json", "kokoro-v1_0.safetensors", "voices/*.safetensors"]}], "verified_on": "Apple M4, 16 GB (2026-11-13)"}
+  ]
+}

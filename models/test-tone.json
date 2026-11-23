@@ -1,0 +1,13 @@
+{
+  "id": "test-tone",
+  "tasks": ["speech", "audio.generate"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"prompt": {"type": "string", "maxLength": 8000}, "duration_s": {"type": "number", "minimum": 0.1, "maximum": 120}, "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "params": {"type": "object", "additionalProperties": false, "properties": {"frequency": {"type": "integer", "minimum": 50, "maximum": 4000}, "realtime": {"type": "boolean"}}}}},
+  "references": {},
+  "license": "LGPL-2.1-or-later",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": false,
+  "variants": [
+    {"platform": {"os": "any", "arch": "any", "accel": "any"}, "runner": "ffmpeg:test-tone", "runtime": "ffmpeg", "backends": ["cpu"], "memory_gb": 0.25, "min_ram_gb": 1, "size_gb": 0, "timeout_s": 300, "speed": {"per_unit": "second of audio", "seconds": 0.01, "measured_on": "Apple M4"}, "install": [], "verified_on": "Apple M4, 16 GB (2026-11-13)"}
+  ]
+}

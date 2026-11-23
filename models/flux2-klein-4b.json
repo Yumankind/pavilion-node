@@ -1,0 +1,14 @@
+{
+  "id": "flux2-klein-4b",
+  "tasks": ["image.generate", "image.edit"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"prompt": {"type": "string", "maxLength": 4000}, "n": {"type": "integer", "minimum": 1, "maximum": 4}, "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "size": {"type": "string", "maxLength": 11}, "params": {"type": "object", "additionalProperties": false, "properties": {"steps": {"type": "integer", "minimum": 1, "maximum": 8}}}}, "required": ["prompt"]},
+  "references": {"subject": {"max": 4}},
+  "license": "apache-2.0",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": false,
+  "sizes": {"block": 16, "min_side": 256, "max_side": 1536, "max_pixels": 2097152, "default": {"width": 1024, "height": 1024}},
+  "variants": [
+    {"platform": {"os": "macos", "arch": "arm64", "accel": "mlx"}, "runner": "mflux:flux2", "runtime": "mlx", "backends": ["mps"], "memory_gb": 5.5, "min_ram_gb": 16, "size_gb": 4.3, "timeout_s": 1800, "speed": {"per_unit": "1024x1024 image, 4 steps", "seconds": 60, "measured_on": "16 GB Apple M4 (00D figure)"}, "weights": {"hf": "mflux-community/flux2-klein-4b-mflux-q4", "revision": "794cd159538149ad9830848508c31f0ea7088e58", "base_model": "flux2-klein-4b"}, "install": [{"kind": "uv_tool", "package": "mflux==0.24.0"}, {"kind": "hf", "repo": "mflux-community/flux2-klein-4b-mflux-q4", "revision": "794cd159538149ad9830848508c31f0ea7088e58"}], "verified_on": "Apple M4, 16 GB (2026-11-13)"}
+  ]
+}

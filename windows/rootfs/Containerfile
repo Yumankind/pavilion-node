@@ -1,0 +1,21 @@
+# The root file system of pavilion-node's WSL distro (node/src/sandbox/wsl.rs): Debian 13 with rootless Podman, gVisor
+# (runsc), and what the broker relays, the exposure probe, the egress table and media re-encoding use.
+# Built by build.sh, which prints the tarball's SHA-256 to pin. For a release, pin BASE by digest too.
+ARG BASE=docker.io/library/debian:trixie-slim
+FROM ${BASE}
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      systemd systemd-sysv dbus-user-session podman netavark aardvark-dns passt crun uidmap fuse-overlayfs \
+      socat nftables netcat-openbsd iproute2 procps util-linux ca-certificates ffmpeg curl gnupg \
+ && curl -fsSL https://gvisor.dev/archive.key | gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg \
+ && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" > /etc/apt/sources.list.d/gvisor.list \
+ && apt-get update && apt-get install -y --no-install-recommends runsc \
+ && apt-get purge -y gnupg && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+# The distro's one user: uid 47000 (the egress table matches it), its containers' users from 470000000, no sudo, no
+# root password. Lingering keeps its systemd user session (and so rootless Podman's cgroups) up without a login.
+RUN groupadd -g 47000 pavilion && useradd -m -u 47000 -g 47000 -s /bin/sh pavilion \
+ && echo 'pavilion:470000000:65536' > /etc/subuid && echo 'pavilion:470000000:65536' > /etc/subgid \
+ && mkdir -p /var/lib/systemd/linger && touch /var/lib/systemd/linger/pavilion \
+ && passwd -l root
+COPY wsl.conf /etc/wsl.conf
+COPY containers.conf /etc/containers/containers.conf
+COPY delegate.conf /etc/systemd/system/user@.service.d/delegate.conf

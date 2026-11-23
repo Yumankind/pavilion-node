@@ -1,0 +1,15 @@
+{
+  "id": "whisper-small",
+  "tasks": ["speech.transcribe"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"language": {"type": "string", "enum": ["en", "pt", "es", "fr", "de", "it", "nl", "ja", "zh", "ko", "ru", "pl", "tr", "ar", "hi", "sv", "da", "no", "fi", "uk", "cs", "el", "he", "id", "vi"]}, "prompt": {"type": "string", "maxLength": 1000}, "params": {"type": "object", "additionalProperties": false, "properties": {"task": {"type": "string", "enum": ["transcribe", "translate"]}}}}},
+  "references": {"source_audio": {"max": 1}},
+  "license": "mit",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": false,
+  "variants": [
+    {"platform": {"os": "macos", "arch": "arm64", "accel": "mlx"}, "runner": "mlx-whisper", "runtime": "mlx", "backends": ["mps"], "memory_gb": 1, "min_ram_gb": 8, "size_gb": 0.5, "timeout_s": 1800, "speed": null, "weights": {"hf": "mlx-community/whisper-small-mlx"}, "install": [{"kind": "uv_tool", "package": "mlx-whisper"}, {"kind": "hf", "repo": "mlx-community/whisper-small-mlx"}], "verified_on": null},
+    {"platform": {"os": "linux", "arch": "any", "accel": "cuda", "min_vram_gb": 2}, "runner": "whisper.cpp", "runtime": "cpp", "backends": ["cuda"], "memory_gb": 1, "min_ram_gb": 4, "size_gb": 0.5, "timeout_s": 1800, "speed": null, "weights": {"hf": "ggerganov/whisper.cpp", "file": "ggml-small.bin"}, "install": [{"kind": "hf", "repo": "ggerganov/whisper.cpp", "include": ["ggml-small.bin"]}], "verified_on": null},
+    {"platform": {"os": "linux", "arch": "any", "accel": "cpu"}, "runner": "whisper.cpp", "runtime": "cpp", "backends": ["cpu"], "memory_gb": 1, "min_ram_gb": 4, "size_gb": 0.5, "timeout_s": 1800, "speed": null, "weights": {"hf": "ggerganov/whisper.cpp", "file": "ggml-small.bin"}, "install": [{"kind": "hf", "repo": "ggerganov/whisper.cpp", "include": ["ggml-small.bin"]}], "verified_on": null}
+  ]
+}

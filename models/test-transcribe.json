@@ -1,0 +1,13 @@
+{
+  "id": "test-transcribe",
+  "tasks": ["speech.transcribe"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"language": {"type": "string", "maxLength": 16}, "params": {"type": "object", "additionalProperties": false, "properties": {}}}},
+  "references": {"source_audio": {"max": 1}},
+  "license": "LGPL-2.1-or-later",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": false,
+  "variants": [
+    {"platform": {"os": "any", "arch": "any", "accel": "any"}, "runner": "ffmpeg:test-transcribe", "runtime": "ffmpeg", "backends": ["cpu"], "memory_gb": 0.25, "min_ram_gb": 1, "size_gb": 0, "timeout_s": 300, "speed": {"per_unit": "minute of audio", "seconds": 1, "measured_on": "Apple M4"}, "install": [], "verified_on": "Apple M4, 16 GB (2026-11-13)"}
+  ]
+}

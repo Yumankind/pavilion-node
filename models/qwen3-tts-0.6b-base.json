@@ -1,0 +1,13 @@
+{
+  "id": "qwen3-tts-0.6b-base",
+  "tasks": ["speech.clone"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"prompt": {"type": "string", "maxLength": 4000}, "language": {"type": "string", "maxLength": 16}, "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "params": {"type": "object", "additionalProperties": false, "properties": {}}}, "required": ["prompt"]},
+  "references": {"voice": {"max": 1}},
+  "license": "apache-2.0",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": false,
+  "variants": [
+    {"platform": {"os": "macos", "arch": "arm64", "accel": "mlx"}, "runner": "mlx-audio:qwen3-tts", "runtime": "mlx", "backends": ["mps"], "memory_gb": 5.5, "min_ram_gb": 8, "size_gb": 1.9, "timeout_s": 900, "speed": null, "weights": {"hf": "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit", "revision": "50f45ef0047cde7e84c2ef04326acb8ada2436a7"}, "install": [{"kind": "uv_tool", "package": "mlx-audio"}, {"kind": "hf", "repo": "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit", "revision": "50f45ef0047cde7e84c2ef04326acb8ada2436a7"}], "verified_on": "Apple M4, 16 GB (2026-11-13)"}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "z-image-turbo",
+  "tasks": ["image.generate"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"prompt": {"type": "string", "maxLength": 4000}, "negative_prompt": {"type": "string", "maxLength": 2000}, "n": {"type": "integer", "minimum": 1, "maximum": 4}, "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "size": {"type": "string", "maxLength": 11}, "params": {"type": "object", "additionalProperties": false, "properties": {"steps": {"type": "integer", "minimum": 1, "maximum": 16}}}}, "required": ["prompt"]},
+  "references": {},
+  "license": "apache-2.0",
+  "commercial": true,
+  "gated": false,
+  "negative_prompt": true,
+  "sizes": {"block": 16, "min_side": 256, "max_side": 1536, "max_pixels": 2097152, "default": {"width": 1024, "height": 1024}},
+  "variants": [
+    {"platform": {"os": "macos", "arch": "arm64", "accel": "mlx"}, "runner": "mflux:z-image-turbo", "runtime": "mlx", "backends": ["mps"], "memory_gb": 9.5, "min_ram_gb": 16, "size_gb": 5.5, "timeout_s": 1200, "speed": null, "weights": {"hf": "mflux-community/z-image-turbo-mflux-q4", "revision": "f427e257d8e6ffa03edd4d9ac554a05809da456c"}, "install": [{"kind": "uv_tool", "package": "mflux==0.24.0"}, {"kind": "hf", "repo": "mflux-community/z-image-turbo-mflux-q4", "revision": "f427e257d8e6ffa03edd4d9ac554a05809da456c"}], "verified_on": "Apple M4, 16 GB (2026-11-13)"}
+  ]
+}

@@ -1,10 +1,10 @@
 [package]
 name = "pavilion-node"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 description = "Joins your own machine to a Cloud Pavilion: inventory, sandboxed jobs, a broker whose secrets are added by the Gate, and a resource guard."
 license = "Apache-2.0"
-repository = "https://github.com/yumankind/pavilion-node"
+repository = "https://github.com/Yumankind/pavilion-node"
 readme = "README.md"
 keywords = ["sandbox", "agents", "virtualization", "security"]
 publish = false
@@ -31,6 +31,30 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 bytes = "1"
 libc = "0.2"
+mdns-sd = "0.21.7"
+# Device standards (docs/DEVICES.md §4b): MQTT, serial ports (OBD-II adapters), TLS for Google Cast, HPKE for secrets
+# lent to this host, digests for camera logins. Mostly crates already in the tree through reqwest and ed25519-dalek.
+rumqttc = { version = "0.24", default-features = false }
+serialport = { version = "4", default-features = false }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+ring = "0.17"
+curve25519-dalek = "4"
+hmac = "0.12"
+sha1 = "0.10"
+md-5 = "0.10"
+zeroize = "1"
+
+# Bluetooth LE for device actions (docs/DEVICES.md §4): CoreBluetooth on macOS, WinRT on Windows. Not on Linux yet
+# (it would need BlueZ / libdbus).
+[target.'cfg(any(target_os = "macos", windows))'.dependencies]
+btleplug = "0.13.5"
+uuid = "1"
+
+# Windows: memory, disk and process checks straight from the Windows API (already in Cargo.lock through tokio).
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = ["Media_Capture", "Media_MediaProperties", "Devices_Enumeration", "Devices_Geolocation", "Graphics_Imaging", "Storage", "Storage_Streams", "Foundation", "Media_SpeechSynthesis", "Media_Playback", "Media_Core", "Security_Credentials_UI", "Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_System_WinRT"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_SystemInformation", "Win32_System_Threading"] }
 
 [profile.dev]
 debug = false

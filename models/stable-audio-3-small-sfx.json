@@ -1,0 +1,13 @@
+{
+  "id": "stable-audio-3-small-sfx",
+  "tasks": ["audio.generate"],
+  "input_schema": {"type": "object", "additionalProperties": false, "properties": {"prompt": {"type": "string", "maxLength": 2000}, "duration_s": {"type": "number", "minimum": 1, "maximum": 120}, "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "params": {"type": "object", "additionalProperties": false, "properties": {"init_noise_level": {"type": "number", "minimum": 0.4, "maximum": 0.8}, "steps": {"type": "integer", "minimum": 1, "maximum": 50}}}, "negative_prompt": {"type": "string", "maxLength": 2000}}, "required": ["prompt"]},
+  "references": {"source_audio": {"max": 1}},
+  "license": "stability-ai-community",
+  "commercial": false,
+  "gated": false,
+  "negative_prompt": true,
+  "variants": [
+    {"platform": {"os": "macos", "arch": "arm64", "accel": "mlx"}, "runner": "sa3", "runtime": "mlx", "backends": ["mps"], "memory_gb": 1.5, "min_ram_gb": 8, "size_gb": 2.7, "timeout_s": 900, "speed": {"per_unit": "10 s of audio", "seconds": 2, "measured_on": "Apple M4 16 GB (lead, 2026-11-13)"}, "weights": {"hf": "stabilityai/stable-audio-3-optimized", "revision": "30cb2644da54bfa63275d1bc7f1fa67fc718680f", "file": "MLX/dit_sm-sfx_f16.npz"}, "install": [{"kind": "git", "repo": "github.com/Stability-AI/stable-audio-3", "dir": "runners/stable-audio-3"}, {"kind": "manual", "note": "in runners/stable-audio-3/optimized/mlx run ./install.sh -y (it sets up its own .venv)", "done_if": "runners/stable-audio-3/optimized/mlx/.venv"}, {"kind": "hf", "repo": "stabilityai/stable-audio-3-optimized", "revision": "30cb2644da54bfa63275d1bc7f1fa67fc718680f", "include": ["MLX/*"]}, {"kind": "link", "repo": "stabilityai/stable-audio-3-optimized", "files": ["MLX/t5gemma_f16.npz", "MLX/same_s_decoder_f32.npz", "MLX/same_s_encoder_f32.npz", "MLX/dit_sm-music_f16.npz", "MLX/dit_sm-sfx_f16.npz"], "dir": "runners/stable-audio-3/optimized/mlx/models/mlx"}], "verified_on": "Apple M4, 16 GB (2026-11-13)"}
+  ]
+}

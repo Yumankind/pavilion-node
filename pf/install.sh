@@ -1,5 +1,5 @@
 #!/bin/sh
-# Cloud Pavilion: keep job sandboxes away from this Mac's own services (docs/DESIGN.md).
+# Cloud Pavilion: keep job sandboxes away from this Mac's own services (docs/MACHINES.md §12, finding 3).
 # Loads node/pf/pavilion.conf into the packet filter, under Apple's own anchor (com.apple/*, which /etc/pf.conf already
 # evaluates), turns the packet filter on, and adds a small launchd job so the rule comes back after a restart.
 # It doesn't edit /etc/pf.conf.
