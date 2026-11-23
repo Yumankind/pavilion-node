@@ -32,6 +32,18 @@ pub fn norm_code(raw: &str) -> Option<String> {
     ok.then_some(t)
 }
 
+/// A Gate this machine may join: https, or plain http only to this computer itself (a local development Gate). A join
+/// over http could have its keys swapped on the way (security audit 23 Nov 2026 #7).
+pub fn gate_ok(gate: &str) -> Result<(), String> {
+    let u = reqwest::Url::parse(gate).map_err(|_| format!("{gate} isn't a Gate address"))?;
+    let local = matches!(u.host_str(), Some("localhost" | "127.0.0.1" | "[::1]" | "::1"));
+    match u.scheme() {
+        "https" => Ok(()),
+        "http" if local => Ok(()),
+        _ => Err(format!("{gate} isn't https; a machine joins a Gate only over https (http only to this computer, for development)")),
+    }
+}
+
 /// `--gate <url>`, else PAVILION_GATE, else production; a pasted `https://<gate>/pair/<code>` link names its own Gate.
 pub fn gate_for(args: &[String], code_arg: &str) -> String {
     if let Some(i) = args.iter().position(|a| a == "--gate") { if let Some(g) = args.get(i + 1) { return g.trim_end_matches('/').to_string(); } }
@@ -117,6 +129,7 @@ pub async fn join(args: &[String]) -> Result<()> {
 /// A pairing code, exchanged at the Gate for a one-time machine link, then the existing join.
 async fn join_with_code(args: &[String], raw: &str, code: &str) -> Result<()> {
     let gate = gate_for(args, raw);
+    gate_ok(&gate).map_err(|w| anyhow!(w))?;
     let http = reqwest::Client::new();
     let r = http.post(format!("{gate}/pair")).json(&json!({ "code": code })).send().await.map_err(|e| anyhow!("couldn't reach {gate}: {e}"))?;
     let status = r.status().as_u16();
@@ -262,6 +275,14 @@ pub async fn login(args: &[String]) -> Result<()> {
 mod tests {
     use super::*;
     const FAKE: &str = "sk-ant-oat01-Ab3_dE-fGhAb3_dE-fGhAb3_dE-fGhAb3_dE-fGhAb3_dE-fGhAb3_dE-fGh"; // made up here, never real
+
+    #[test]
+    fn a_machine_joins_only_over_https_or_to_itself() {
+        assert!(gate_ok("https://cloudpavilion.net").is_ok() && gate_ok("https://staging.cloudpavilion.net").is_ok());
+        assert!(gate_ok("http://localhost:8787").is_ok() && gate_ok("http://127.0.0.1:8787").is_ok() && gate_ok("http://[::1]:8787").is_ok());
+        assert!(gate_ok("http://cloudpavilion.net").unwrap_err().contains("isn't https"));
+        assert!(gate_ok("http://192.168.1.5:8787").is_err() && gate_ok("ws://cloudpavilion.net").is_err() && gate_ok("nonsense").is_err());
+    }
 
     #[test]
     fn codes_read_as_the_gate_reads_them() {

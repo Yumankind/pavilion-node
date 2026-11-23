@@ -70,7 +70,19 @@ pub fn media_dir() -> PathBuf {
     { crate::state::dir().join("media") }
 }
 
-/// What to run when sandboxes can reach this machine's services.
-pub fn firewall_hint() -> &'static str {
-    if cfg!(windows) { "in PowerShell as administrator: node\\windows\\install.ps1" } else if cfg!(target_os = "macos") { "sudo node/pf/install.sh" } else { "a firewall rule for 10.89.0.0/16 (node/pf/pavilion.conf shows what it must do)" }
+/// What to run when sandboxes can reach this machine's services: the copy that came with this node (inside Pavilion
+/// Node.app on a Mac, beside the binary from install.sh on Linux), else the one in a source checkout.
+pub fn firewall_hint() -> String {
+    let exe = std::env::current_exe().ok().and_then(|p| p.canonicalize().ok());
+    if cfg!(windows) { return "in PowerShell as administrator: windows\\install.ps1 (it came with pavilion-node as firewall.ps1)".into(); }
+    if cfg!(target_os = "macos") {
+        // …/Pavilion Node.app/Contents/MacOS/pavilion-node → …/Contents/Resources/pf/install.sh
+        if let Some(s) = exe.as_ref().and_then(|e| e.parent()?.parent().map(|c| c.join("Resources/pf/install.sh"))).filter(|s| s.is_file()) {
+            return format!("sudo \"{}\"", s.display());
+        }
+        return "sudo node/pf/install.sh (in a checkout of github.com/Yumankind/pavilion-node: pf/install.sh)".into();
+    }
+    let shipped = crate::state::dir().join("firewall/firewall.sh");
+    if shipped.is_file() { return format!("sudo {}", shipped.display()); }
+    "sudo linux/firewall.sh (in a checkout of github.com/Yumankind/pavilion-node)".into()
 }

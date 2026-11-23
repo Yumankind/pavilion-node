@@ -22,6 +22,11 @@ pub struct State {
     pub last_seq: u64,
 }
 
+/// The owner's stop switch (`pavilion-node pause`): while this file exists the node takes no work at all. It is the
+/// owner's at the machine; nothing the pavilion sends can remove it (security audit 23 Nov 2026 #4).
+pub fn pause_file() -> PathBuf { dir().join("paused") }
+pub fn paused() -> bool { pause_file().exists() }
+
 #[cfg_attr(windows, allow(unreachable_code))]
 pub fn dir() -> PathBuf {
     if let Ok(d) = std::env::var("PAVILION_NODE_HOME") { return PathBuf::from(d); }

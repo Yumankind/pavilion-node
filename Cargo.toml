@@ -1,6 +1,6 @@
 [package]
 name = "pavilion-node"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Joins your own machine to a Cloud Pavilion: inventory, sandboxed jobs, a broker whose secrets are added by the Gate, and a resource guard."
 license = "Apache-2.0"

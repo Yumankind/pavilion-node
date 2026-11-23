@@ -54,6 +54,8 @@ async fn main() {
     let cmd = std::env::args().nth(1).unwrap_or_default();
     let r = match cmd.as_str() {
         "version" | "--version" | "-V" => { println!("pavilion-node {}", env!("CARGO_PKG_VERSION")); Ok(()) }
+        "pause" => pause(true),
+        "resume" => pause(false),
         "join" => onboard::join(&std::env::args().skip(2).collect::<Vec<_>>()).await,
         "login" => onboard::login(&std::env::args().skip(2).collect::<Vec<_>>()).await,
         "accounts" => accounts::cli(&std::env::args().skip(2).collect::<Vec<_>>()).await,
@@ -74,10 +76,29 @@ async fn main() {
         "service" => platform::windows::service(&std::env::args().skip(2).collect::<Vec<_>>()),
         #[cfg(not(windows))]
         "wsl" | "service" => Err(anyhow!("`{cmd}` is for Windows")),
-        _ => { eprintln!("usage: pavilion-node version | join [<CODE> [--gate <url>] | <link>] | login claude|codex | accounts [add claude <label>|disable|enable|remove <label>] | run | inventory | guard | status | storage [folder] | exposure | models [storage|add|verify] | project push|pull <project> <folder> | devices status|history|scan … | bridge add <broker>|code|status|run|remove | cli-tools [list|add|remove]{}",
+        _ => { eprintln!("usage: pavilion-node version | pause | resume | join [<CODE> [--gate <url>] | <link>] | login claude|codex | accounts [add claude <label>|disable|enable|remove <label>] | run | inventory | guard | status | storage [folder] | exposure | models [storage|add|verify] | project push|pull <project> <folder> | devices status|history|scan … | bridge add <broker>|code|status|run|remove | cli-tools [list|add|remove]{}",
             if cfg!(windows) { " | wsl [install <rootfs.tar>|status|remove] | service [install|uninstall|status]" } else { "" }); std::process::exit(2) }
     };
     if let Err(e) = r { eprintln!("error: {e:#}"); std::process::exit(1); }
+}
+
+/// The owner's stop switch, at the machine: no jobs, host roles, media jobs, device actions or model calls while paused.
+/// Running job sandboxes are stopped too. Only `pavilion-node resume`, here, undoes it.
+fn pause(on: bool) -> Result<()> {
+    let f = state::pause_file();
+    if on {
+        std::fs::create_dir_all(state::dir())?;
+        std::fs::write(&f, b"paused by this computer's owner\n")?;
+        // Every sandbox the node starts is named pav-… (jobs, roles, probes). Apple's `container ls -q` prints names.
+        let list: &[&str] = if cfg!(target_os = "macos") { &["ls", "-q"] } else { &["ps", "--format", "{{.Names}}"] };
+        let stopped = std::process::Command::new(if cfg!(target_os = "macos") { "container" } else { "podman" }).args(list).output().ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).lines().filter(|n| n.starts_with("pav-")).map(String::from).collect::<Vec<_>>()).unwrap_or_default();
+        for n in &stopped { let _ = std::process::Command::new(if cfg!(target_os = "macos") { "container" } else { "podman" }).args(["stop", n]).output(); }
+        println!("Paused: this computer takes no pavilion work until you run `pavilion-node resume` here.{}", if stopped.is_empty() { String::new() } else { format!(" Stopped {} running sandbox(es).", stopped.len()) });
+    } else {
+        match std::fs::remove_file(&f) { Ok(()) => println!("Resumed: this computer takes pavilion work again."), Err(_) => println!("It wasn't paused.") }
+    }
+    Ok(())
 }
 
 fn guard_now() {
@@ -145,7 +166,10 @@ async fn post(http: &reqwest::Client, gate: &str, host: &str, key: &ed25519_dale
 /// confirmation checked and pinned. Reached from a machine link, or from a pairing code exchanged for one (onboard.rs join).
 async fn join_with(gate: &str, pavilion: &str, token: &str, name: &str) -> Result<()> {
     let (gate, pavilion) = (gate.to_string(), pavilion.to_string());
+    onboard::gate_ok(&gate).map_err(|w| anyhow!(w))?;
     let host = reqwest::Url::parse(&gate)?.host_str().unwrap_or_default().to_string() + &reqwest::Url::parse(&gate)?.port().map(|p| format!(":{p}")).unwrap_or_default();
+    // Say which Gate this machine is about to trust: a link to a look-alike address would pin someone else's keys.
+    if gate != onboard::DEFAULT_GATE { eprintln!("\n  Joining the pavilion {pavilion} at {gate} — not cloudpavilion.net. Go on only if that is the address your console shows.\n"); }
     let http = reqwest::Client::new();
 
     let key = state::new_key()?;
@@ -179,7 +203,7 @@ async fn join_with(gate: &str, pavilion: &str, token: &str, name: &str) -> Resul
                 let body: Value = serde_json::from_str(c["body"].as_str().unwrap_or("{}")).unwrap_or(json!({}));
                 let derived = b64(&sha256(&[format!("{alg}:").as_bytes(), &signing::unb64(pk).unwrap_or_default()].concat()))[..22].to_string();
                 if !verify_member(alg, pk, &msg, c["signature"].as_str().unwrap_or("")) || derived != kid
-                    || body["code"].as_str() != Some(&code) || body["machineKey"].as_str() != Some(&my_id) || (!owner.is_empty() && kid != owner) {
+                    || body["code"].as_str() != Some(&code) || body["machineKey"].as_str() != Some(&my_id) || owner.is_empty() || kid != owner {
                     bail!("the confirmation isn't signed by the owner for this code and this machine; not joining");
                 }
                 state::save(&state::State { gate: gate.clone(), pavilion: pavilion.clone(), machine: machine.clone(), name: name.into(), pavilion_key,

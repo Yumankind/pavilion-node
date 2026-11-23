@@ -393,6 +393,7 @@ pub async fn handle(v: &Value, cx: Ctx) {
     if id.is_empty() || id.len() > 100 { return; }
     let out = cx.out.clone();
     if !cx.settings.on { return err(&out, &id, "grant_refused", "this machine's owner turned the model relay off"); }
+    if crate::state::paused() { return err(&out, &id, "grant_refused", "this machine's owner paused pavilion-node"); }
     let (payload, sig) = (v["payload"].as_str().unwrap_or_default(), v["sig"].as_str().unwrap_or_default());
     if !verify(&cx.pavilion_key, payload, sig) { eprintln!("relay: refused a model call with a bad signature"); return err(&out, &id, "grant_refused", "bad signature"); }
     let e = match open(payload) { Ok(e) => e, Err(w) => return err(&out, &id, "bad_request", &w) };

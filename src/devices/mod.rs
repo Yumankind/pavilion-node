@@ -455,6 +455,7 @@ fn ctx() -> anyhow::Result<Ctx> {
 
 /// One action at a time: a person answers one question at a time.
 async fn take(payload: String, sig: String) {
+    if crate::state::paused() { eprintln!("devices: paused by this computer's owner; the action is not done"); return; }
     let _turn = QUEUE.lock().await;
     let (Ok(side), Ok(c)) = (Real::new(), ctx()) else { eprintln!("devices: not joined"); return };
     let o = handle(&side, &c, &payload, &sig).await;

@@ -52,7 +52,9 @@ pub struct Ceiling {
 
 #[cfg_attr(windows, allow(unreachable_code))]
 pub fn path() -> PathBuf {
-    if let Ok(p) = std::env::var("PAVILION_CEILING") { return PathBuf::from(p); }
+    // Development and test builds only: in a release, anything that can set this process's environment (a LaunchAgent
+    // the user can edit) could point the root-owned ceiling at nothing (security audit 23 Nov 2026).
+    if cfg!(debug_assertions) || cfg!(test) { if let Ok(p) = std::env::var("PAVILION_CEILING") { return PathBuf::from(p); } }
     #[cfg(windows)]
     return PathBuf::from(std::env::var("ProgramData").unwrap_or_else(|_| r"C:\ProgramData".into())).join("pavilion-node").join("ceiling");
     if cfg!(target_os = "macos") { PathBuf::from("/Library/Application Support/pavilion-node/ceiling") } else { PathBuf::from("/etc/pavilion-node/ceiling") }
@@ -216,7 +218,8 @@ impl Devices {
 /* ---------- jobs: which kinds of job this computer runs, and in which images ---------- */
 
 /// The job kinds the node knows: commands, agent jobs (agent.rs), CLI connector jobs (cli.rs), media jobs (media/).
-pub const JOB_KINDS: &[&str] = &["command", "agent", "cli", "media"];
+/// `host`: the long-lived sandboxes of a role this machine hosts (the Steward, an orchestrator; roles.rs).
+pub const JOB_KINDS: &[&str] = &["command", "agent", "cli", "media", "host"];
 
 /// The `jobs:` section. `None` means no limit from the ceiling; an empty set means nothing is allowed.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -299,13 +302,15 @@ pub fn parse_jobs(text: &str) -> Result<Option<Jobs>, String> {
     Ok(seen.then_some(j))
 }
 
-/// The job limits on disk now. No file, or a file without a `jobs:` section: the defaults (every kind, any image with a
-/// sane name). Err, with the reason, when the node can't use what someone wrote: every job is then refused.
+/// The job limits on disk now. No file, or a file without a `jobs:` section: every kind, but only the images this node
+/// itself uses (`Jobs::node_default`), since the pavilion names the image of a command job or a hosted role. Err, with
+/// the reason, when the node can't use what someone wrote, or the owner paused it: every job is then refused.
 pub fn load_jobs() -> Result<Jobs, String> {
+    if crate::state::paused() { return Err("this computer's owner paused pavilion-node (pavilion-node resume, on the machine, starts it again)".into()); }
     let p = path();
     let text = match std::fs::read_to_string(&p) {
         Ok(t) => t,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Jobs::default()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Jobs::node_default()),
         // It may hold a jobs: section the node can't see; run nothing rather than guess.
         Err(e) => return Err(format!("the node can't read this computer's ceiling file {} ({e}), so it runs no jobs until it can", p.display())),
     };
@@ -315,7 +320,7 @@ pub fn load_jobs() -> Result<Jobs, String> {
 /// `load_jobs` once the file is read: only a file that has a `jobs:` section can stop jobs.
 fn jobs_from(p: &std::path::Path, text: &str, trust: Result<(), String>) -> Result<Jobs, String> {
     let parsed = parse_jobs(text);
-    if let Ok(None) = parsed { return Ok(Jobs::default()); }
+    if let Ok(None) = parsed { return Ok(Jobs::node_default()); }
     if let Err(why) = trust { return Err(format!("{why}; until then it runs no jobs, since the file sets job limits")); }
     match parsed {
         Ok(j) => Ok(j.unwrap_or_default()),
@@ -323,7 +328,21 @@ fn jobs_from(p: &std::path::Path, text: &str, trust: Result<(), String>) -> Resu
     }
 }
 
+/// The images a node runs without a `jobs: images:` list (security audit 23 Nov 2026 #4): what it uses itself. Command
+/// jobs get Alpine unless the person named another; agent jobs and hosted roles the worker image; CLI jobs the image the
+/// owner set for each tool. Anything else needs the owner to list it in the ceiling file.
+pub const NODE_IMAGES: &[&str] = &["docker.io/library/alpine:3.22", "docker.io/library/node:24-bookworm-slim", "pavilion-dev:2", "pavilion-dev:1"];
+
 impl Jobs {
+    /// No `jobs:` section: every kind, the node's own images (and those this machine's owner configured) only.
+    pub fn node_default() -> Jobs {
+        let mut images: BTreeSet<String> = NODE_IMAGES.iter().map(|s| s.to_string()).collect();
+        images.insert(crate::agent::image());
+        let cfg = crate::state::config();
+        if let Some(h) = cfg["host_image"].as_str().filter(|i| image_shape_ok(i)) { images.insert(h.into()); }
+        for t in crate::cli::tools_from(&cfg) { images.insert(t.image); }
+        Jobs { kinds: None, images: Some(images) }
+    }
     /// Whether the ceiling lets this computer run a job of this kind, and why not.
     pub fn allows_kind(&self, kind: &str) -> Result<(), String> {
         match &self.kinds {
@@ -512,8 +531,12 @@ mod tests {
         let none = parse_jobs("jobs: none\n").unwrap().unwrap();
         for k in JOB_KINDS { assert_eq!(none.allows_kind(k).unwrap_err(), "this computer's ceiling allows no jobs (jobs: none)"); }
         assert!(none.describe().contains("runs no jobs"));
-        // No section: None, which load_jobs turns into the defaults (every kind, any sane image).
+        // No section: None, which load_jobs turns into the node's defaults (every kind, its own images: node_default).
         assert_eq!(parse_jobs("").unwrap(), None);
+        let nd = Jobs::node_default();
+        for k in JOB_KINDS { assert!(nd.allows_kind(k).is_ok()); }
+        assert!(nd.allows_image("docker.io/library/alpine:3.22").is_ok() && nd.allows_image("pavilion-dev:2").is_ok());
+        assert!(nd.allows_image("10.0.0.5:5000/x").is_err() && nd.allows_image("evil/miner:latest").is_err());
         let d = Jobs::default();
         for k in JOB_KINDS { assert!(d.allows_kind(k).is_ok()); }
         assert!(d.allows_image("docker.io/library/alpine:3.22").is_ok());
@@ -546,7 +569,7 @@ mod tests {
         // A devices-only file leaves jobs at their defaults.
         let devices_only = "devices:\n  capabilities: lan\n  agents: agt_a\n";
         assert_eq!(parse_jobs(devices_only).unwrap(), None);
-        assert_eq!(jobs_from(Path::new("/c"), devices_only, Ok(())).unwrap(), Jobs::default());
+        assert_eq!(jobs_from(Path::new("/c"), devices_only, Ok(())).unwrap(), Jobs::node_default());
         // A jobs-only file leaves devices off.
         let jobs_only = "jobs:\n  kinds: command\n";
         assert!(parse(jobs_only).unwrap().is_none());
@@ -566,7 +589,7 @@ mod tests {
         let why = jobs_from(Path::new("/c"), "jobs:\n  kinds: command\n", untrusted()).unwrap_err();
         assert!(why.contains("isn't owned by root") && why.contains("runs no jobs"));
         // Untrusted without a jobs: section: nothing to enforce, so the defaults (it can't be used to stop jobs either).
-        assert_eq!(jobs_from(Path::new("/c"), "devices: none\n", untrusted()).unwrap(), Jobs::default());
+        assert_eq!(jobs_from(Path::new("/c"), "devices: none\n", untrusted()).unwrap(), Jobs::node_default());
         // A mistake: no jobs.
         assert!(jobs_from(Path::new("/c"), "jobs:\n  kinds: everything\n", Ok(())).unwrap_err().contains("has a mistake"));
     }
@@ -577,9 +600,10 @@ mod tests {
         let (c, j, line) = (load(), load_jobs(), status_line());
         std::env::remove_var("PAVILION_CEILING");
         assert!(c.devices.is_none() && c.problem.is_none());
-        assert_eq!(j, Ok(Jobs::default()));
+        assert_eq!(j, Ok(Jobs::node_default()));
         println!("{line}");
-        assert!(line.starts_with("ceiling (no file at /nonexistent/pavilion-ceiling): job kinds: all · images: any"));
+        assert!(line.starts_with("ceiling (no file at /nonexistent/pavilion-ceiling): job kinds: all · images: "), "{line}");
+        assert!(!line.contains("images: any"), "{line}");
         assert!(line.contains(NETWORK) && line.ends_with("devices: none"));
     }
 }

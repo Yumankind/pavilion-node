@@ -63,6 +63,8 @@ fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 cp "$NODE_BIN" "$APP/Contents/MacOS/pavilion-node"
 cp "$OUT/pavilion-devices" "$APP/Contents/MacOS/pavilion-devices"
+# The firewall rule that keeps job VMs away from this Mac's services, so `pavilion-node exposure` can name it.
+mkdir -p "$APP/Contents/Resources/pf" && cp "$NODE_DIR/pf/install.sh" "$NODE_DIR/pf/pavilion.conf" "$APP/Contents/Resources/pf/"
 
 echo "4/4 signing ($([ "$SIGN" = - ] && echo 'ad hoc' || echo "$SIGN"))"
 ENT="$NODE_DIR/macos/node.entitlements"

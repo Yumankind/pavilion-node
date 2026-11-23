@@ -381,6 +381,52 @@ fn host_ipv4s() -> Vec<String> {
     }).collect()
 }
 
+/// This computer's IPv6 addresses on the interface that holds `gw` (a job network's gateway), written as a VM on that
+/// network dials them: link-local ones with the VM's own interface (`%eth0`). A job VM always has a link-local address
+/// and can reach these, which IPv4 rules don't cover (security audit 23 Nov 2026 #5).
+#[cfg(unix)]
+pub fn host_ipv6_beside(gw: &str) -> Vec<String> {
+    use std::ffi::CStr;
+    let Ok(gw4) = gw.parse::<std::net::Ipv4Addr>() else { return vec![] };
+    let mut out = vec![];
+    // SAFETY: getifaddrs gives a list we only read and then free; every pointer is checked before use.
+    unsafe {
+        let mut ifap: *mut libc::ifaddrs = std::ptr::null_mut();
+        if libc::getifaddrs(&mut ifap) != 0 { return out; }
+        let mut iface: Option<String> = None;
+        let mut p = ifap;
+        while !p.is_null() {
+            let a = &*p;
+            if !a.ifa_addr.is_null() && (*a.ifa_addr).sa_family as i32 == libc::AF_INET {
+                let sin = &*(a.ifa_addr as *const libc::sockaddr_in);
+                if u32::from_be(sin.sin_addr.s_addr) == u32::from(gw4) { iface = Some(CStr::from_ptr(a.ifa_name).to_string_lossy().into_owned()); }
+            }
+            p = a.ifa_next;
+        }
+        if let Some(name) = iface {
+            p = ifap;
+            while !p.is_null() {
+                let a = &*p;
+                if !a.ifa_addr.is_null() && (*a.ifa_addr).sa_family as i32 == libc::AF_INET6 && CStr::from_ptr(a.ifa_name).to_string_lossy() == name {
+                    let sin6 = &*(a.ifa_addr as *const libc::sockaddr_in6);
+                    let mut b = sin6.sin6_addr.s6_addr;
+                    if b[0] == 0xfe && b[1] & 0xc0 == 0x80 { b[2] = 0; b[3] = 0; out.push(format!("{}%eth0", std::net::Ipv6Addr::from(b))); } // macOS keeps the scope in bytes 2–3
+                    else { out.push(std::net::Ipv6Addr::from(b).to_string()); }
+                }
+                p = a.ifa_next;
+            }
+        }
+        libc::freeifaddrs(ifap);
+    }
+    out
+}
+
+static CONTAINED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Whether the last exposure check ran and found nothing a sandbox could reach (link.rs sets it). Hosted roles wait for
+/// it as jobs do (security audit 23 Nov 2026 #8).
+pub fn contained() -> bool { CONTAINED.load(std::sync::atomic::Ordering::SeqCst) }
+pub fn set_contained(v: bool) { CONTAINED.store(v, std::sync::atomic::Ordering::SeqCst) }
+
 /// Starts a throwaway sandbox on a job network and tries every exposed port, on the job gateway and on this machine's
 /// other addresses. Returns what it could reach (empty is the only safe answer).
 pub async fn probe_exposure() -> Result<Vec<String>> {
@@ -392,21 +438,32 @@ pub async fn probe_exposure() -> Result<Vec<String>> {
     // some processes see none of them.)
     let canary = std::net::TcpListener::bind(("0.0.0.0", 0))?;
     let canary_port = canary.local_addr()?.port();
+    // And one on IPv6, for the job bridge's link-local and unique-local addresses.
+    let canary6 = std::net::TcpListener::bind(("::", 0)).ok();
+    let canary6_port = canary6.as_ref().and_then(|c| c.local_addr().ok()).map(|a| a.port());
     let mut ports: Vec<u16> = exposed_ports();
     for p in COMMON_PORTS { if !ports.contains(p) { ports.push(*p); } }
     ports.push(canary_port);
+    if let Some(p) = canary6_port { ports.push(p); }
     let name = format!("pav-probe-{}", rand::random::<u32>());
     let subnet = format!("10.89.{}.0/24", 251 + rand::random::<u8>() % 4);
     cli(&rt, &["network", "create", "--internal", "--subnet", &subnet, "--label", "pavilion.job=probe", &name]).await?;
     let inspect: Value = serde_json::from_str(&cli(&rt, &["network", "inspect", &name]).await?)?;
     let (gw, _) = gateway_and_subnet(&rt, &inspect);
     let mut targets = vec![gw.clone()]; targets.extend(host_ipv4s());
+    #[cfg(unix)]
+    targets.extend(host_ipv6_beside(&gw));
     // All at once: with the firewall in place every attempt waits out its timeout, so one by one would take minutes.
-    let script = format!("for h in {}; do for p in {}; do (timeout 2 nc -w 1 $h $p </dev/null >/dev/null 2>&1 && echo OPEN $h:$p) & done; done; wait; true",
+    // IPv6 too: once its addresses settle, the VM asks who is on its link (this computer answers on its bridge) and tries
+    // them as well. Seen on 23 Nov 2026: Screen Sharing, Kerberos and DNS on this Mac answered a VM over link-local IPv6.
+    let script = format!("sleep 3; ping -6 -c 2 -W 1 ff02::1%eth0 >/dev/null 2>&1; me=$(ip -6 addr show dev eth0 2>/dev/null | awk '/inet6/{{print $2}}' | cut -d/ -f1); \
+        v6=$(ip -6 neigh show dev eth0 2>/dev/null | awk '{{print $1}}' | while read a; do case \" $me \" in *\" $a \"*) ;; *) echo \"$a%eth0\";; esac; done); \
+        for h in {} $v6; do for p in {}; do (timeout 2 nc -w 1 $h $p </dev/null >/dev/null 2>&1 && echo OPEN $h:$p) & done; done; wait; true",
         targets.join(" "), ports.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(" "));
     let mut args: Vec<String> = match rt {
         Runtime::Apple => ["run", "--progress", "none", "--name", &name, "--network", &name, "--no-dns", "--arch", "arm64", "-m", "256M", "-c", "1"].iter().map(|s| s.to_string()).collect(),
-        Runtime::Podman { oci } => ["run", "--name", &name, "--network", &name, "--dns", "none", "--runtime", oci, "--memory", "256m", "--cap-drop", "ALL"].iter().map(|s| s.to_string()).collect(),
+        // NET_RAW only for this probe's own fixed script: its IPv6 neighbour ping.
+        Runtime::Podman { oci } => ["run", "--name", &name, "--network", &name, "--dns", "none", "--runtime", oci, "--memory", "256m", "--cap-drop", "ALL", "--cap-add", "NET_RAW"].iter().map(|s| s.to_string()).collect(),
     };
     for a in ["--label", "pavilion.job=probe", "docker.io/library/alpine:3.22", "sh", "-c", &script] { args.push(a.into()); }
     let out = tokio::time::timeout(Duration::from_secs(120), runtime_command(rt.cli()).args(&args).output()).await;
@@ -423,8 +480,9 @@ pub async fn probe_exposure() -> Result<Vec<String>> {
             open.extend(wsl::probe(who, &hosts, &ports).await?.into_iter().map(|hp| format!("{hp} from WSL as {who} ({layer} aren't in place)")));
         }
     }
-    drop(canary);
+    drop(canary); drop(canary6);
     Ok(open.into_iter().map(|hp| {
-        if hp.split_whitespace().next().map_or(false, |a| a.ends_with(&format!(":{canary_port}"))) { format!("{hp} (the node's canary: the firewall rule isn't loaded)") } else { hp }
+        let at = |port: u16| hp.split_whitespace().next().map_or(false, |a| a.ends_with(&format!(":{port}")));
+        if at(canary_port) || canary6_port.map_or(false, at) { format!("{hp} (the node's canary: the firewall rule isn't loaded)") } else { hp }
     }).collect())
 }

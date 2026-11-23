@@ -241,6 +241,9 @@ pub async fn push(c: &Client, project: &str, root: &Path, message: &str, branch:
 fn local_path(root: &Path, rel: &str) -> Result<PathBuf> {
     let p = Path::new(rel);
     if rel.is_empty() || !p.components().all(|c| matches!(c, Component::Normal(_))) || rel.split('/').any(|s| !name_ok(s)) { bail!("refusing the path {rel:?}"); }
+    // Never into a .git folder: a hook pulled there runs on this computer at the next commit, outside every sandbox
+    // (security audit 23 Nov 2026 #6). The Gate refuses such paths too; this holds even if it didn't.
+    if rel.split('/').any(|s| s.eq_ignore_ascii_case(".git")) { bail!("refusing {rel:?}: a project's files never go into a .git folder"); }
     let mut at = root.to_path_buf();
     for c in p.components() {
         at.push(c);
@@ -318,6 +321,15 @@ mod tests {
     use hyper::{body::Incoming, Request, Response};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn pull_never_writes_into_a_git_folder() {
+        let root = std::env::temp_dir().join(format!("pav-pull-{}", rand::random::<u32>()));
+        std::fs::create_dir_all(&root).unwrap();
+        for bad in [".git/hooks/pre-commit", "app/.git/config", ".GIT/HEAD", "../x", "/etc/passwd", ""] { assert!(local_path(&root, bad).is_err(), "{bad}"); }
+        for ok in [".github/workflows/ci.yml", "docs/.gitignore", "a.git/x"] { assert!(local_path(&root, ok).is_ok(), "{ok}"); }
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn ignore_rules() {

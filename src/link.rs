@@ -22,8 +22,8 @@ struct Exposure { ports: Vec<u16>, open: Vec<String>, checked: bool, error: Opti
 async fn check_exposure() -> Exposure {
     let ports = sandbox::exposed_ports();
     match sandbox::probe_exposure().await {
-        Ok(open) => { if !open.is_empty() { eprintln!("exposure: sandboxes can reach {}", open.join(", ")); } Exposure { ports, open, checked: true, error: None } }
-        Err(e) => { eprintln!("exposure probe: {e}"); Exposure { ports, open: vec![], checked: false, error: Some(e.to_string()) } }
+        Ok(open) => { if !open.is_empty() { eprintln!("exposure: sandboxes can reach {}", open.join(", ")); } sandbox::set_contained(open.is_empty()); Exposure { ports, open, checked: true, error: None } }
+        Err(e) => { eprintln!("exposure probe: {e}"); sandbox::set_contained(false); Exposure { ports, open: vec![], checked: false, error: Some(e.to_string()) } }
     }
 }
 fn exposure_json(x: &Exposure) -> Value { json!({ "checked": x.checked, "open": x.open, "listening": x.ports, "error": x.error }) }

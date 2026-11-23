@@ -89,6 +89,28 @@ pub fn parse_subnet(cidr: &str) -> Option<(u32, u32)> {
 }
 fn in_subnet(ip: IpAddr, (net, mask): (u32, u32)) -> bool { matches!(ip, IpAddr::V4(v4) if u32::from(v4) & mask == net) }
 
+/// Whether this computer itself holds `ip` (it can bind it): the job network's gateway, or any of the host's own
+/// addresses. A process on the host that connects to the gateway arrives *from* the gateway, which is inside the job's
+/// subnet, so the subnet alone can't tell it from the sandbox (security audit 23 Nov 2026 #3).
+pub fn host_holds(ip: IpAddr) -> bool { std::net::UdpSocket::bind((ip, 0)).is_ok() }
+
+/// Who may talk to a job's broker: an address in the job's own network that is not this computer's. Only the job's VM
+/// holds such an address. (Tests run brokers over loopback, which the host holds.)
+fn peer_allowed(ip: IpAddr, subnet: (u32, u32)) -> bool {
+    in_subnet(ip, subnet) && (cfg!(test) && ip.is_loopback() || !host_holds(ip))
+}
+
+/// A request a web browser made (a page on this computer reaching the broker by DNS rebinding or a blind cross-site
+/// POST): browsers add Origin or Sec-Fetch-*, and a rebinding page's Host is its own name. The sandbox's tools always
+/// address the broker by IP (PAVILION_BROKER=http://<gateway>:<port>) and send neither header.
+pub fn from_a_browser(headers: &hyper::HeaderMap, connect: bool) -> bool {
+    if headers.contains_key("origin") || headers.keys().any(|k| k.as_str().starts_with("sec-fetch-")) { return true; }
+    if connect { return false; } // a CONNECT's Host is the SSH target, not the broker
+    let host = headers.get("host").and_then(|h| h.to_str().ok()).unwrap_or("");
+    let bare = host.rsplit_once(':').map(|(h, p)| if p.chars().all(|c| c.is_ascii_digit()) { h } else { host }).unwrap_or(host);
+    bare.trim_matches(|c| c == '[' || c == ']').parse::<IpAddr>().is_err()
+}
+
 /// Media door bodies hold images and audio, so they may be larger than egress bodies (the Gate's limit too).
 const DOOR_MAX: usize = 32 * 1024 * 1024;
 
@@ -268,7 +290,7 @@ impl Broker {
             loop {
                 let Ok((stream, peer)) = listener.accept().await else { continue };
                 while conns.try_join_next().is_some() {}
-                if !in_subnet(peer.ip(), self.subnet) { drop(stream); continue; }
+                if !peer_allowed(peer.ip(), self.subnet) { drop(stream); continue; }
                 let me = self.clone();
                 conns.spawn(async move {
                     let slot: Slot = Default::default();
@@ -286,6 +308,9 @@ impl Broker {
     }
 
     async fn handle(&self, req: Request<Incoming>, _peer: SocketAddr, slot: &Slot) -> Response<Body> {
+        if from_a_browser(req.headers(), req.method() == hyper::Method::CONNECT) {
+            return text(StatusCode::FORBIDDEN, "Blocked by the node: this broker answers its job's sandbox, not a web browser.\n".into());
+        }
         let path = req.uri().path().to_string();
         let query = req.uri().query().map(|q| format!("?{q}")).unwrap_or_default();
         if let Some(r) = &self.role {
@@ -575,6 +600,32 @@ impl Broker {
 mod tests {
     use super::*;
     #[test]
+    fn only_the_jobs_own_vm_reaches_its_broker() {
+        let sub = parse_subnet("10.89.7.0/24").unwrap();
+        // This computer holds loopback (tests allow it, a release doesn't) and never holds a VM's address.
+        assert!(host_holds("127.0.0.1".parse().unwrap()));
+        assert!(!host_holds("10.89.7.2".parse().unwrap()) || !in_subnet("10.89.7.2".parse().unwrap(), sub));
+        assert!(peer_allowed("10.89.7.2".parse().unwrap(), sub));
+        assert!(!peer_allowed("10.89.8.2".parse().unwrap(), sub) && !peer_allowed("192.168.1.10".parse().unwrap(), sub));
+    }
+
+    #[test]
+    fn a_browser_is_refused_whatever_it_sends() {
+        let h = |pairs: &[(&str, &str)]| { let mut m = hyper::HeaderMap::new(); for (k, v) in pairs { m.insert(hyper::header::HeaderName::from_bytes(k.as_bytes()).unwrap(), v.parse().unwrap()); } m };
+        // The sandbox's own tools: an IP Host, no browser headers.
+        assert!(!from_a_browser(&h(&[("host", "10.89.7.1:47100")]), false));
+        assert!(!from_a_browser(&h(&[("host", "[fd00::1]:47100")]), false));
+        // A page by DNS rebinding (its own name as Host), or any request a browser marks.
+        assert!(from_a_browser(&h(&[("host", "evil.example:47100")]), false));
+        assert!(from_a_browser(&h(&[("host", "10.89.7.1:47100"), ("origin", "https://evil.example")]), false));
+        assert!(from_a_browser(&h(&[("host", "10.89.7.1:47100"), ("sec-fetch-site", "cross-site")]), false));
+        assert!(from_a_browser(&h(&[]), false));
+        // A CONNECT names the SSH target as its Host; only browser headers refuse it.
+        assert!(!from_a_browser(&h(&[("host", "github.com:22")]), true));
+        assert!(from_a_browser(&h(&[("host", "github.com:22"), ("origin", "https://evil.example")]), true));
+    }
+
+    #[test]
     fn subnets() {
         let s = parse_subnet("192.168.128.0/24").unwrap();
         assert!(in_subnet("192.168.128.2".parse().unwrap(), s));
@@ -633,7 +684,7 @@ mod tests {
         assert!(!seen.contains("authorization") && !seen.contains("sk-dummy") && !seen.contains("cookie") && !seen.contains("evil.example"), "{seen}");
         // A dot segment never leaves the broker (sent raw: an HTTP client would tidy it up first).
         let mut s = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
-        s.write_all(b"GET /v1/../node/media/next HTTP/1.1\r\nhost: x\r\nconnection: close\r\n\r\n").await.unwrap();
+        s.write_all(b"GET /v1/../node/media/next HTTP/1.1\r\nhost: 127.0.0.1\r\nconnection: close\r\n\r\n").await.unwrap();
         let mut out = String::new();
         s.read_to_string(&mut out).await.unwrap();
         assert!(out.starts_with("HTTP/1.1 404") && out.contains("not a media door"), "{out}");

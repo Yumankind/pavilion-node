@@ -1,0 +1,21 @@
+# Cloud Pavilion: job sandboxes may reach ONLY the node's brokers on this machine (docs/DESIGN.md; the twin of
+# pf/pavilion.conf on macOS). Every job gets its own network in 10.89.0.0/16 (rootful Podman bridges, podman* or
+# cni-podman*); brokers listen on 47100-47199. Loaded by firewall.sh; `nft list table inet pavilion` shows it.
+table inet pavilion {
+  chain input {
+    type filter hook input priority -10; policy accept;
+    # The broker, from a job network.
+    ip saddr 10.89.0.0/16 tcp dport 47100-47199 accept
+    # Everything else from a job network: this machine's services, its DNS (aardvark), its LAN address.
+    ip saddr 10.89.0.0/16 drop
+    # IPv6 from container bridges to this machine (link-local and unique-local reach host services otherwise).
+    iifname "podman*" meta nfproto ipv6 drop
+    iifname "cni-podman*" meta nfproto ipv6 drop
+  }
+  chain forward {
+    type filter hook forward priority -10; policy accept;
+    # Job networks are internal; nothing from them is forwarded anywhere, including other job networks.
+    ip saddr 10.89.0.0/16 drop
+    ip daddr 10.89.0.0/16 drop
+  }
+}

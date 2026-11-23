@@ -307,7 +307,9 @@ impl<R: Runtime> Manager<R> {
         let name = box_name(role);
         let image = w.image.clone().unwrap_or_else(|| self.image.clone());
         // The Gate may name the image, so the local ceiling's image list (jobs: images, ceiling.rs) holds here too.
-        if let Err(why) = crate::ceiling::load_jobs().and_then(|j| j.allows_image(&image)) { eprintln!("host: not starting the {role} sandbox: {why}"); return false; }
+        if let Err(why) = crate::ceiling::load_jobs().and_then(|j| j.allows_kind("host").and_then(|_| j.allows_image(&image))) { eprintln!("host: not starting the {role} sandbox: {why}"); return false; }
+        // Not while a sandbox here could reach this machine's own services (the same gate as jobs, link.rs).
+        if !cfg!(test) && !crate::sandbox::contained() { eprintln!("host: not starting the {role} sandbox: sandboxes here can reach this machine's services, or that wasn't checked yet ({})", crate::platform::firewall_hint()); return false; }
         eprintln!("host: starting the {role} sandbox ({image})");
         let (gw, sub) = match self.rt.start(&name, &format!("pavilion.job=role-{}", role.replace(':', "-")), &image).await {
             Ok(x) => x, Err(e) => { eprintln!("host: couldn't start the {role} sandbox: {e}"); return false; }
