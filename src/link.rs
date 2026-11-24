@@ -19,11 +19,25 @@ struct Running { started_ms: u64, memory_mib: u64 }
 #[derive(Clone, Default)]
 struct Exposure { ports: Vec<u16>, open: Vec<String>, checked: bool, error: Option<String> }
 
+/// The last reason the exposure probe couldn't run, so it is said once, and its recovery said too.
+static PROBE_SAID: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
 async fn check_exposure() -> Exposure {
     let ports = sandbox::exposed_ports();
     match sandbox::probe_exposure().await {
-        Ok(open) => { if !open.is_empty() { eprintln!("exposure: sandboxes can reach {}", open.join(", ")); } sandbox::set_contained(open.is_empty()); Exposure { ports, open, checked: true, error: None } }
-        Err(e) => { eprintln!("exposure probe: {e}"); sandbox::set_contained(false); Exposure { ports, open: vec![], checked: false, error: Some(e.to_string()) } }
+        Ok(open) => {
+            if !open.is_empty() { eprintln!("exposure: sandboxes can reach {}", open.join(", ")); }
+            else if !std::mem::take(&mut *PROBE_SAID.lock().unwrap_or_else(|p| p.into_inner())).is_empty() { eprintln!("exposure probe runs again: a sandbox can reach nothing here, jobs can start"); }
+            sandbox::set_contained(open.is_empty());
+            Exposure { ports, open, checked: true, error: None }
+        }
+        Err(e) => {
+            // Said once per different reason: while the probe can't run it is tried again every minute (below).
+            let mut said = PROBE_SAID.lock().unwrap_or_else(|p| p.into_inner());
+            if *said != e.to_string() { eprintln!("exposure probe: {e}"); *said = e.to_string(); }
+            sandbox::set_contained(false);
+            Exposure { ports, open: vec![], checked: false, error: Some(e.to_string()) }
+        }
     }
 }
 fn exposure_json(x: &Exposure) -> Value { json!({ "checked": x.checked, "open": x.open, "listening": x.ports, "error": x.error }) }
@@ -165,8 +179,10 @@ async fn session(running: Arc<Mutex<HashMap<String, Running>>>) -> Result<()> {
                 if crate::media::inventory_changed() { tx.send(Message::text(send_inventory(&exposure).await)).await?; }
             }
             _ = recheck.tick() => {
-                // Probe again when the set of listening ports changes (a new dev server, Screen Sharing turned on…).
-                if sandbox::exposed_ports() != exposure.ports && running.lock().await.is_empty() {
+                // Probe again when the set of listening ports changes (a new dev server, Screen Sharing turned on…), and
+                // while the last probe couldn't run at all (Apple container not up yet after a restart): jobs stay
+                // refused until one succeeds, so without this a slow start would keep the machine idle until the next run.
+                if (sandbox::exposed_ports() != exposure.ports || !exposure.checked) && running.lock().await.is_empty() {
                     exposure = check_exposure().await;
                     tx.send(Message::text(send_inventory(&exposure).await)).await?;
                 }

@@ -16,7 +16,9 @@
 //!   pavilion-node storage [folder]   where VM images and disks live, e.g. a folder on an external drive
 //!   pavilion-node models …    the media model catalog, where models live, add and verify one (media/store.rs)
 //!   pavilion-node wsl …       Windows: install, check or remove the WSL distro jobs run in (sandbox/wsl.rs)
-//!   pavilion-node service …   Windows: start the node at logon (platform/windows.rs)
+//!   pavilion-node service install|uninstall|status   start `run` by itself at login: a LaunchAgent on macOS, a systemd
+//!                             user unit on Linux (platform/service.rs), Task Scheduler on Windows (platform/windows.rs).
+//!                             `join` installs it
 //!   pavilion-node project push|pull <project> <folder>   a project's files to and from the pavilion (project.rs)
 //!   pavilion-node devices status|history|scan …   device actions on this computer (devices/, docs/DEVICES.md)
 //!   pavilion-node bridge add <broker> … | code | status | run | remove   a LAN broker's plugs and sensors as connected
@@ -59,7 +61,7 @@ async fn main() {
         "join" => onboard::join(&std::env::args().skip(2).collect::<Vec<_>>()).await,
         "login" => onboard::login(&std::env::args().skip(2).collect::<Vec<_>>()).await,
         "accounts" => accounts::cli(&std::env::args().skip(2).collect::<Vec<_>>()).await,
-        "run" => { vm_storage_up(); link::run_forever().await }
+        "run" => run().await,
         "inventory" => { println!("{}", serde_json::to_string_pretty(&inventory::collect().await).unwrap()); Ok(()) }
         "guard" => { guard_now(); Ok(()) }
         "storage" => storage(std::env::args().nth(2)).await,
@@ -74,10 +76,12 @@ async fn main() {
         "wsl" => sandbox::wsl::cli(&std::env::args().skip(2).collect::<Vec<_>>()).await,
         #[cfg(windows)]
         "service" => platform::windows::service(&std::env::args().skip(2).collect::<Vec<_>>()),
+        #[cfg(unix)]
+        "service" => platform::service::cli(&std::env::args().skip(2).collect::<Vec<_>>()),
         #[cfg(not(windows))]
-        "wsl" | "service" => Err(anyhow!("`{cmd}` is for Windows")),
-        _ => { eprintln!("usage: pavilion-node version | pause | resume | join [<CODE> [--gate <url>] | <link>] | login claude|codex | accounts [add claude <label>|disable|enable|remove <label>] | run | inventory | guard | status | storage [folder] | exposure | models [storage|add|verify] | project push|pull <project> <folder> | devices status|history|scan … | bridge add <broker>|code|status|run|remove | cli-tools [list|add|remove]{}",
-            if cfg!(windows) { " | wsl [install <rootfs.tar>|status|remove] | service [install|uninstall|status]" } else { "" }); std::process::exit(2) }
+        "wsl" => Err(anyhow!("`{cmd}` is for Windows")),
+        _ => { eprintln!("usage: pavilion-node version | pause | resume | join [<CODE> [--gate <url>] | <link>] | login claude|codex | accounts [add claude <label>|disable|enable|remove <label>] | run | inventory | guard | status | storage [folder] | exposure | models [storage|add|verify] | project push|pull <project> <folder> | devices status|history|scan … | bridge add <broker>|code|status|run|remove | cli-tools [list|add|remove] | service [install|uninstall|status]{}",
+            if cfg!(windows) { " | wsl [install <rootfs.tar>|status|remove]" } else { "" }); std::process::exit(2) }
     };
     if let Err(e) = r { eprintln!("error: {e:#}"); std::process::exit(1); }
 }
@@ -208,7 +212,15 @@ async fn join_with(gate: &str, pavilion: &str, token: &str, name: &str) -> Resul
                 }
                 state::save(&state::State { gate: gate.clone(), pavilion: pavilion.clone(), machine: machine.clone(), name: name.into(), pavilion_key,
                     owner_key_id: kid.into(), owner_alg: alg.into(), owner_public_key: pk.into(), last_seq: 0 })?;
-                eprintln!("Joined {pavilion} as {machine}. Confirmed by {} ({kid}). Run `pavilion-node run` to stay connected.", c["name"].as_str().unwrap_or("the owner"));
+                eprintln!("Joined {pavilion} as {machine}. Confirmed by {} ({kid}).", c["name"].as_str().unwrap_or("the owner"));
+                // Start it now and at every login, so a restart or a power cut doesn't leave the machine offline.
+                #[cfg(unix)]
+                match platform::service::install() {
+                    Ok(said) => eprintln!("{said} `pavilion-node service uninstall` stops that."),
+                    Err(e) => eprintln!("Couldn't set it to start by itself ({e:#}). Run `pavilion-node run` to stay connected."),
+                }
+                #[cfg(windows)]
+                eprintln!("Run `pavilion-node run` to stay connected, or `pavilion-node service install` to start it at every logon.");
                 return Ok(());
             }
             Some("revoked") => bail!("the pavilion cancelled this join"),
@@ -265,19 +277,125 @@ fn start_container_at(root: &std::path::Path) -> Result<()> {
 #[cfg(not(target_os = "macos"))]
 fn start_container_at(_root: &std::path::Path) -> Result<()> { Ok(()) }
 
-/// At `run`: if VM storage was moved (`vm_storage`) and the drive is there, make sure Apple container uses it. After a
-/// restart the service comes back on its default root, which is the boot disk, so without this jobs would quietly fill
-/// it. If the drive isn't mounted, the guard already refuses work (guard.rs); this only says so.
-fn vm_storage_up() {
+/// `pavilion-node run`: one per computer (state::run_lock), then VM storage, then the link. A second run, such as the
+/// service started at login while someone has one open in a terminal, says so and exits cleanly, which also tells
+/// launchd and systemd not to start it again.
+async fn run() -> Result<()> {
+    if !state::run_lock()? {
+        eprintln!("pavilion-node run is already running on this computer{}; this one stops.",
+            state::run_holder().map(|p| format!(" (pid {p})")).unwrap_or_default());
+        return Ok(());
+    }
     #[cfg(target_os = "macos")]
-    {
+    std::thread::spawn(vm_storage_watch);
+    link::run_forever().await
+}
+
+/// Keeps Apple container on the VM storage the owner chose (`vm_storage`). After a restart the service isn't running at
+/// all, and the drive may come later than the node (an external disk, or a disk image no one attached), so this looks
+/// again every 15 seconds until both are there, then every minute in case either goes away. While the drive is missing
+/// the guard refuses work (guard.rs); this only brings things back. It never moves the service off another folder
+/// after the first look: that would fight someone who did it on purpose.
+#[cfg(target_os = "macos")]
+fn vm_storage_watch() {
+    let mut first = true;
+    let mut said = String::new();
+    loop {
         let Some(base) = state::config()["vm_storage"].as_str().map(std::path::PathBuf::from) else { return };
-        if !base.is_dir() { eprintln!("VM storage {} isn't mounted; jobs wait until it is", base.display()); return; }
-        let root = base.join("pavilion-vms");
-        let ok = container_root().map_or(false, |r| std::fs::canonicalize(&r).ok() == std::fs::canonicalize(&root).ok());
-        if !ok {
-            let _ = std::process::Command::new("container").args(["system", "stop"]).status();
-            if let Err(e) = start_container_at(&root) { eprintln!("couldn't start Apple container on {}: {e:#}", root.display()); }
+        let (ready, say) = vm_storage_step(&base, first);
+        if !say.is_empty() && say != said { eprintln!("{say}"); }
+        said = say;
+        first = false;
+        std::thread::sleep(Duration::from_secs(if ready { 60 } else { 15 }));
+    }
+}
+
+/// One look. Returns whether Apple container now runs on `base`/pavilion-vms, and what to say (said once per change).
+#[cfg(target_os = "macos")]
+fn vm_storage_step(base: &std::path::Path, first: bool) -> (bool, String) {
+    let image = state::config()["vm_storage_image"].as_str().map(std::path::PathBuf::from);
+    if !base.is_dir() {
+        // The drive is a disk image the node has seen it on: attach it, if the disk holding the image is there.
+        match image.filter(|i| i.exists()) {
+            Some(i) => {
+                let ok = std::process::Command::new("hdiutil").args(["attach", "-nobrowse"]).arg(&i)
+                    .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().map_or(false, |s| s.success());
+                if !ok || !base.is_dir() { return (false, format!("VM storage {} isn't mounted and attaching {} didn't work; jobs wait until it is", base.display(), i.display())); }
+                eprintln!("attached {} for VM storage {}", i.display(), base.display());
+            }
+            None => return (false, format!("VM storage {} isn't mounted; jobs wait until it is", base.display())),
         }
+    } else if image.is_none() {
+        // Learn which disk image backs it, so the next restart can attach it.
+        if let Some(i) = image_backing(base) { let _ = state::set_config("vm_storage_image", json!(i)); }
+    }
+    let root = base.join("pavilion-vms");
+    let same = |r: &std::path::Path| std::fs::canonicalize(r).ok() == std::fs::canonicalize(&root).ok();
+    match container_root() {
+        Some(r) if same(&r) => (true, String::new()),
+        Some(r) if !first => (false, format!("Apple container runs with its data in {}, not on VM storage {}; leaving it (`pavilion-node storage {}` moves it back)", r.display(), root.display(), base.display())),
+        running => {
+            if running.is_some() { let _ = std::process::Command::new("container").args(["system", "stop"]).status(); }
+            match start_container_at(&root) {
+                Ok(()) => { eprintln!("Apple container is running with its data on VM storage {}", root.display()); (true, String::new()) }
+                Err(e) => (false, format!("couldn't start Apple container on {}: {e:#}", root.display())),
+            }
+        }
+    }
+}
+
+/// The disk image (`hdiutil info`) mounted at `mount`, if `mount` is one.
+#[cfg(target_os = "macos")]
+fn image_backing(mount: &std::path::Path) -> Option<String> {
+    let plist = std::process::Command::new("hdiutil").args(["info", "-plist"]).output().ok()?.stdout;
+    let mut c = std::process::Command::new("plutil");
+    c.args(["-convert", "json", "-o", "-", "-"]).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped());
+    let mut child = c.spawn().ok()?;
+    std::io::Write::write_all(child.stdin.as_mut()?, &plist).ok()?;
+    drop(child.stdin.take());
+    let info: Value = serde_json::from_slice(&child.wait_with_output().ok()?.stdout).ok()?;
+    image_for_mount(&info, mount)
+}
+
+/// From `hdiutil info` as JSON: the image whose volume is mounted at `mount`.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn image_for_mount(info: &Value, mount: &std::path::Path) -> Option<String> {
+    let want = mount.to_string_lossy().trim_end_matches('/').to_string();
+    info["images"].as_array()?.iter().find(|img| img["system-entities"].as_array().map_or(false, |es| es.iter()
+        .any(|e| e["mount-point"].as_str().map(|m| m.trim_end_matches('/')) == Some(want.as_str()))))
+        .and_then(|img| img["image-path"].as_str()).filter(|p| p.starts_with('/')).map(String::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_disk_image_is_the_one_mounted_at_vm_storage_and_nothing_else() {
+        let info = json!({ "images": [
+            { "image-path": "/Volumes/Extreme SSD/other.sparsebundle", "system-entities": [{}, { "mount-point": "/Volumes/PavilionModelsOld" }] },
+            { "image-path": "/Volumes/Extreme SSD/pavilion-models.sparsebundle", "system-entities": [{}, {}, { "mount-point": "/Volumes/PavilionModels" }] },
+            { "image-path": "relative.dmg", "system-entities": [{ "mount-point": "/Volumes/Rel" }] }
+        ] });
+        assert_eq!(image_for_mount(&info, std::path::Path::new("/Volumes/PavilionModels/")).as_deref(), Some("/Volumes/Extreme SSD/pavilion-models.sparsebundle"));
+        assert_eq!(image_for_mount(&info, std::path::Path::new("/Volumes/Pavilion")), None);
+        assert_eq!(image_for_mount(&info, std::path::Path::new("/Volumes/Rel")), None, "only an absolute image path is kept");
+        assert_eq!(image_for_mount(&json!({}), std::path::Path::new("/Volumes/PavilionModels")), None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_second_run_on_the_same_computer_is_turned_away() {
+        let dir = std::env::temp_dir().join(format!("pav-runlock-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // flock is per open file, so a second open in this process stands in for a second process.
+        let f = std::fs::OpenOptions::new().create(true).write(true).open(dir.join("run.lock")).unwrap();
+        use std::os::unix::io::AsRawFd;
+        assert_eq!(unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }, 0);
+        let g = std::fs::File::open(dir.join("run.lock")).unwrap();
+        assert_ne!(unsafe { libc::flock(g.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }, 0, "a second holder must be refused");
+        drop(f);
+        assert_eq!(unsafe { libc::flock(g.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }, 0, "and let in once the first is gone");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

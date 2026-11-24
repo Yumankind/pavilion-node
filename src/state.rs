@@ -91,11 +91,42 @@ pub fn save(s: &State) -> Result<()> { write_private(&dir().join("state.json"), 
 pub fn config() -> serde_json::Value {
     std::fs::read(dir().join("config.json")).ok().and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok()).filter(|v| v.is_object()).unwrap_or_else(|| serde_json::json!({}))
 }
-/// Sets one setting, keeping the others.
+/// Sets one setting, keeping the others. Written owner-only like the key: it names where VM disks live and which disk
+/// image the node attaches.
 pub fn set_config(key: &str, value: serde_json::Value) -> Result<()> {
     std::fs::create_dir_all(dir())?;
     let mut c = config();
     c[key] = value;
-    std::fs::write(dir().join("config.json"), serde_json::to_vec_pretty(&c)?)?;
-    Ok(())
+    write_private(&dir().join("config.json"), &serde_json::to_vec_pretty(&c)?)
 }
+
+/// One `pavilion-node run` per computer: two would hold the same machine's link and take turns being kicked off it
+/// (the service started at login, and someone typing `pavilion-node run` too). The lock is an flock on `run.lock`,
+/// held for the life of the process and let go by the kernel when it ends, however it ends. Ok(false) when another
+/// run already holds it.
+#[cfg(unix)]
+pub fn run_lock() -> Result<bool> {
+    use std::io::{Seek, Write};
+    use std::os::unix::{fs::OpenOptionsExt, io::AsRawFd};
+    std::fs::create_dir_all(dir())?;
+    let mut f = std::fs::OpenOptions::new().create(true).read(true).write(true).mode(0o600).open(dir().join("run.lock"))?;
+    if unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 { return Ok(false); }
+    f.set_len(0)?;
+    f.rewind()?;
+    write!(f, "{}", std::process::id())?;
+    Box::leak(Box::new(f));
+    Ok(true)
+}
+#[cfg(windows)]
+pub fn run_lock() -> Result<bool> { Ok(true) }
+
+/// The pid of the `pavilion-node run` holding this computer's lock, if one does.
+#[cfg(unix)]
+pub fn run_holder() -> Option<u32> {
+    use std::os::unix::io::AsRawFd;
+    let f = std::fs::File::open(dir().join("run.lock")).ok()?;
+    if unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) } == 0 { return None; }
+    std::fs::read_to_string(dir().join("run.lock")).ok()?.trim().parse().ok()
+}
+#[cfg(windows)]
+pub fn run_holder() -> Option<u32> { None }

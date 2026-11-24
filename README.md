@@ -59,8 +59,10 @@ Then join it from your pavilion: **Machines › Add a machine** gives you the co
 ## Use
 
 ```bash
-pavilion-node join XXXX-XXXX     # the code from Machines › Add a machine; type the 6-digit code it shows
-pavilion-node run                # stay connected and take jobs
+pavilion-node join XXXX-XXXX     # the code from Machines › Add a machine; type the 6-digit code it shows.
+                                 # It then runs in the background and starts again at every login (the service)
+pavilion-node service status     # does it start by itself, and is it running? (install | uninstall)
+pavilion-node run                # stay connected and take jobs, in this terminal (one run per computer)
 pavilion-node status             # which pavilion, which machine, the guard and the ceiling
 pavilion-node inventory          # what this machine reports
 pavilion-node exposure           # can a sandbox reach this machine's services?

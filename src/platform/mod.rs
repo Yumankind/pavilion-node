@@ -1,6 +1,8 @@
 //! What differs between the hosts the node runs on: small hooks the rest of the node calls. macOS and Linux run
 //! everything on the host. Windows keeps only the node on Windows; sandboxes, media runners, input re-encoding and
 //! model storage live in the pavilion WSL distro (sandbox/wsl.rs), so the Linux code paths run there unchanged.
+#[cfg(unix)]
+pub mod service;
 pub mod sleep;
 pub mod windows;
 
